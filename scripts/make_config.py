@@ -11,7 +11,8 @@ DATA = ROOT / "data"
 LOAD_OVERHEAD_H = 0.1  # model/WavLM load + first-batch warmup
 
 
-def build_config(batch_size, max_len, epochs, diff_epoch, joint_epoch, log_dir, num_workers=2):
+def build_config(batch_size, max_len, epochs, diff_epoch, joint_epoch, log_dir, num_workers=2,
+                 grad_checkpoint=True, mixed_precision=None):
     with open(STTS / "Configs" / "config_ft.yml", encoding="utf-8") as f:
         c = yaml.safe_load(f)
     c.update({
@@ -19,6 +20,8 @@ def build_config(batch_size, max_len, epochs, diff_epoch, joint_epoch, log_dir, 
         "batch_size": batch_size, "max_len": max_len, "num_workers": num_workers,
         "pretrained_model": str(STTS / "Models/LibriTTS/epochs_2nd_00020.pth"),
         "second_stage_load_pretrained": True, "load_only_params": True,
+        "grad_checkpoint": grad_checkpoint,  # decoder activation checkpointing (fits 8 GB VRAM)
+        "mixed_precision": mixed_precision,  # None = fp32; "bf16" = bf16 autocast (needed for 8 GB VRAM)
     })
     c["data_params"].update({
         "train_data": str(DATA / "train_list.txt"), "val_data": str(DATA / "val_list.txt"),
@@ -59,7 +62,7 @@ def main():
     s = plan_schedule(cal["n_train"], cal["batch_size"], cal["sec_per_step"], val_sec,
                       budget_h=args.budget_h, slm_ok=cal["slm_ok"])
     c = build_config(cal["batch_size"], cal["max_len"], s["epochs"], s["diff_epoch"], s["joint_epoch"],
-                     log_dir=str(ROOT / "runs/az_ft"))
+                     log_dir=str(ROOT / "runs/az_ft"), mixed_precision=cal.get("mixed_precision"))
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
         yaml.safe_dump(c, f, allow_unicode=True, sort_keys=False)

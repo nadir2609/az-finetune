@@ -1,0 +1,106 @@
+{
+  "batch_size": 2,
+  "max_len": 150,
+  "slm_ok": false,
+  "mixed_precision": "bf16",
+  "sec_per_step": {
+    "a": 1.832392692565918,
+    "diff": 1.9020094871520996,
+    "joint": null
+  },
+  "peak_gb": {
+    "a": 5.970703125,
+    "diff": 6.498046875,
+    "joint": null
+  },
+  "n_train": 2310,
+  "n_val": 122,
+  "fit_check": "longest 200 train utterances, 30 steps",
+  "raw": {
+    "4/300/joint": {
+      "ok": false,
+      "oom": true,
+      "tail": "TTS2\\losses.py\", line 182, in forward\n    y_ds_hat_r, y_ds_hat_g, _, _ = self.msd(y, y_hat)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 86, in forward\n    y_d_r, fmap_r = d(y)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 53, in forward\n    y = stft(y, self.fft_size, self.shift_size, self.win_length, self.window.to(y.get_device()))\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 22, in stft\n    x_stft = torch.stft(x, fft_size, hop_size, win_length, window,\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\functional.py\", line 681, in stft\n    return _VF.stft(  # type: ignore[attr-defined]\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 12.00 MiB. GPU 0 has a total capacity of 7.96 GiB of which 155.22 MiB is free. 6.57 GiB allowed; Of the allocated memory 6.39 GiB is allocated by PyTorch, and 185.56 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+    },
+    "4/200/joint": {
+      "ok": false,
+      "oom": true,
+      "tail": "ine 158, in forward\n    y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = self.msd(y, y_hat)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 87, in forward\n    y_d_g, fmap_g = d(y_hat)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 53, in forward\n    y = stft(y, self.fft_size, self.shift_size, self.win_length, self.window.to(y.get_device()))\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 22, in stft\n    x_stft = torch.stft(x, fft_size, hop_size, win_length, window,\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\functional.py\", line 681, in stft\n    return _VF.stft(  # type: ignore[attr-defined]\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 7.96 GiB of which 165.66 MiB is free. 6.57 GiB allowed; Of the allocated memory 6.43 GiB is allocated by PyTorch, and 144.67 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+    },
+    "3/200/joint": {
+      "ok": false,
+      "oom": true,
+      "tail": "  return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 86, in forward\n    y_d_r, fmap_r = d(y)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 56, in forward\n    y = d(y)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1885, in _call_impl\n    return inner()\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1833, in inner\n    result = forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\conv.py\", line 553, in forward\n    return self._conv_forward(input, self.weight, self.bias)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\conv.py\", line 548, in _conv_forward\n    return F.conv2d(\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 30.00 MiB. GPU 0 has a total capacity of 7.96 GiB of which 195.08 MiB is free. 6.57 GiB allowed; Of the allocated memory 6.37 GiB is allocated by PyTorch, and 199.54 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+    },
+    "2/200/joint": {
+      "ok": true,
+      "slm_active": false,
+      "steps": 30,
+      "sec_per_step_mean": 2.1861650149027505,
+      "sec_per_step_median": 2.18332839012146,
+      "peak_reserved_gb": 6.572265625,
+      "peak_allocated_gb": 6.424663543701172,
+      "stop_reason": "max_steps"
+    },
+    "2/150/joint": {
+      "ok": true,
+      "slm_active": false,
+      "steps": 30,
+      "sec_per_step_mean": 1.9340556904121682,
+      "sec_per_step_median": 1.9013340473175049,
+      "peak_reserved_gb": 6.48828125,
+      "peak_allocated_gb": 5.9520182609558105,
+      "stop_reason": "max_steps"
+    },
+    "2/100/joint": {
+      "ok": true,
+      "slm_active": false,
+      "steps": 30,
+      "sec_per_step_mean": 1.72155436763057,
+      "sec_per_step_median": 1.7070915699005127,
+      "peak_reserved_gb": 5.845703125,
+      "peak_allocated_gb": 5.433076858520508,
+      "stop_reason": "max_steps"
+    },
+    "4/300/diff": {
+      "ok": false,
+      "oom": true,
+      "tail": ":\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\losses.py\", line 182, in forward\n    y_ds_hat_r, y_ds_hat_g, _, _ = self.msd(y, y_hat)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 86, in forward\n    y_d_r, fmap_r = d(y)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 57, in forward\n    y = F.leaky_relu(y, LRELU_SLOPE)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\functional.py\", line 1921, in leaky_relu\n    result = torch._C._nn.leaky_relu(input, negative_slope)\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 24.00 MiB. GPU 0 has a total capacity of 7.96 GiB of which 177.04 MiB is free. 6.57 GiB allowed; Of the allocated memory 6.38 GiB is allocated by PyTorch, and 189.62 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+    },
+    "4/200/diff": {
+      "ok": false,
+      "oom": true,
+      "tail": "esktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\losses.py\", line 158, in forward\n    y_ds_hat_r, y_ds_hat_g, fmap_s_r, fmap_s_g = self.msd(y, y_hat)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 86, in forward\n    y_d_r, fmap_r = d(y)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 57, in forward\n    y = F.leaky_relu(y, LRELU_SLOPE)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\functional.py\", line 1921, in leaky_relu\n    result = torch._C._nn.leaky_relu(input, negative_slope)\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 20.00 MiB. GPU 0 has a total capacity of 7.96 GiB of which 196.21 MiB is free. 6.57 GiB allowed; Of the allocated memory 6.42 GiB is allocated by PyTorch, and 148.10 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+    },
+    "3/200/diff": {
+      "ok": false,
+      "oom": true,
+      "tail": ":\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\losses.py\", line 182, in forward\n    y_ds_hat_r, y_ds_hat_g, _, _ = self.msd(y, y_hat)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 86, in forward\n    y_d_r, fmap_r = d(y)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1779, in _wrapped_call_impl\n    return self._call_impl(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\modules\\module.py\", line 1790, in _call_impl\n    return forward_call(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\Modules\\discriminators.py\", line 57, in forward\n    y = F.leaky_relu(y, LRELU_SLOPE)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\nn\\functional.py\", line 1921, in leaky_relu\n    result = torch._C._nn.leaky_relu(input, negative_slope)\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 16.00 MiB. GPU 0 has a total capacity of 7.96 GiB of which 193.08 MiB is free. 6.57 GiB allowed; Of the allocated memory 6.30 GiB is allocated by PyTorch, and 278.78 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+    },
+    "2/200/diff": {
+      "ok": false,
+      "oom": true,
+      "tail": "Loss: 0.00000, SLoss: 0.00000, S2S Loss: 6.24005, Mono Loss: 0.06368\nTraceback (most recent call last):\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\train_finetune.py\", line 789, in <module>\n    main()\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\click\\core.py\", line 1631, in __call__\n    return self.main(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\click\\core.py\", line 1552, in main\n    rv = self.invoke(ctx)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\click\\core.py\", line 1415, in invoke\n    return ctx.invoke(self.callback, **ctx.params)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\click\\core.py\", line 910, in invoke\n    return callback(*args, **kwargs)\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\StyleTTS2\\train_finetune.py\", line 498, in main\n    g_loss.backward()\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\_tensor.py\", line 631, in backward\n    torch.autograd.backward(\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\autograd\\__init__.py\", line 381, in backward\n    _engine_run_backward(\n  File \"C:\\Users\\user\\Desktop\\style-tts2-tuning\\.venv\\lib\\site-packages\\torch\\autograd\\graph.py\", line 869, in _engine_run_backward\n    return Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass\ntorch.OutOfMemoryError: CUDA out of memory. Tried to allocate 32.00 MiB. GPU 0 has a total capacity of 7.96 GiB of which 148.22 MiB is free. 6.57 GiB allowed; Of the allocated memory 6.25 GiB is allocated by PyTorch, and 315.57 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)\n"
+    },
+    "2/150/diff": {
+      "ok": true,
+      "slm_active": false,
+      "steps": 30,
+      "sec_per_step_mean": 1.933203555919506,
+      "sec_per_step_median": 1.9020094871520996,
+      "peak_reserved_gb": 6.498046875,
+      "peak_allocated_gb": 5.9455718994140625,
+      "stop_reason": "max_steps"
+    },
+    "2/150/a": {
+      "ok": true,
+      "slm_active": false,
+      "steps": 30,
+      "sec_per_step_mean": 1.818573616169117,
+      "sec_per_step_median": 1.832392692565918,
+      "peak_reserved_gb": 5.970703125,
+      "peak_allocated_gb": 5.425820827484131,
+      "stop_reason": "max_steps"
+    }
+  }
+}

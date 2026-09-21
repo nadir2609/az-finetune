@@ -1,11 +1,13 @@
 """Capped (<=50 step) runs per training phase to measure VRAM + s/step. Never a real training run."""
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
+import soundfile as sf
 import yaml
 
 from make_config import build_config
@@ -14,10 +16,34 @@ ROOT = Path(__file__).resolve().parents[1]
 STTS = ROOT / "StyleTTS2"
 PY = str(ROOT / ".venv/Scripts/python.exe")
 SMOKE = ROOT / "runs/smoke"
-CANDIDATES = [(4, 300), (4, 200), (3, 200), (2, 200), (2, 150)]  # (batch_size, max_len), best first
+CANDIDATES = [(4, 300), (4, 200), (3, 200), (2, 200), (2, 150), (2, 100)]  # (batch_size, max_len), best first
 STEPS = 30
+MIXED_PRECISION = "bf16"  # rung 2 of the 8 GB memory ladder (fp32 + grad checkpointing alone OOMs)
+# Fit-check on the longest utterances: text aligner / BERT / style encoders run on the full utterance, so a
+# random 30-step sample can pass and the real run still OOM on a batch of long files.
+STRESS_N = 200
 ENV = dict(os.environ, PHONEMIZER_ESPEAK_LIBRARY=r"C:\Program Files\eSpeak NG\libespeak-ng.dll",
            TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD="1", PYTHONIOENCODING="utf-8")
+
+
+def slm_active(log_text):
+    """True if any logged DiscLM/GenLM loss is non-zero (the SLM adversarial step actually ran)."""
+    vals = re.findall(r"(?:DiscLM|GenLM) Loss: ([-+0-9.eE]+|nan|inf)", log_text)
+    return any(v in ("nan", "inf") or float(v) != 0.0 for v in vals)
+
+
+def longest_lines(lines, frames_fn, n):
+    """The n list lines whose wav (first '|' field) is longest, longest first."""
+    return sorted(lines, key=lambda l: -frames_fn(l.split("|")[0]))[:n]
+
+
+def stress_list():
+    lines = [l for l in (ROOT / "data/train_list.txt").read_text(encoding="utf-8").splitlines() if l.strip()]
+    out = SMOKE / "stress_train_list.txt"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    longest = longest_lines(lines, lambda w: sf.info(str(ROOT / "data/wavs" / w)).frames, STRESS_N)
+    out.write_text("\n".join(longest) + "\n", encoding="utf-8")
+    return out
 
 
 def run_phase(bs, max_len, phase, max_hours=1.0, max_steps=STEPS):
@@ -27,7 +53,8 @@ def run_phase(bs, max_len, phase, max_hours=1.0, max_steps=STEPS):
     shutil.rmtree(log_dir, ignore_errors=True)
     log_dir.mkdir(parents=True)
     cfg = build_config(bs, max_len, epochs=1, diff_epoch=diff_epoch, joint_epoch=joint_epoch,
-                       log_dir=str(log_dir), num_workers=0)
+                       log_dir=str(log_dir), num_workers=0, mixed_precision=MIXED_PRECISION)
+    cfg["data_params"]["train_data"] = str(stress_list())
     cfg_path = log_dir / "config.yml"
     cfg_path.write_text(yaml.safe_dump(cfg, allow_unicode=True), encoding="utf-8")
     stats = log_dir / "stats.json"
@@ -38,7 +65,8 @@ def run_phase(bs, max_len, phase, max_hours=1.0, max_steps=STEPS):
     if p.returncode != 0 or not stats.exists():
         oom = "out of memory" in (p.stderr + p.stdout).lower()
         return {"ok": False, "oom": oom, "tail": p.stderr[-2000:]}
-    return {"ok": True, **json.loads(stats.read_text(encoding="utf-8"))}
+    log = (log_dir / "train.log").read_text(encoding="utf-8", errors="replace")
+    return {"ok": True, "slm_active": slm_active(log), **json.loads(stats.read_text(encoding="utf-8"))}
 
 
 def count(name):
@@ -51,7 +79,10 @@ def main():
     for bs, ml in CANDIDATES:  # 1) find the largest setting where the heaviest phase (joint) fits
         r = run_phase(bs, ml, "joint")
         results[f"{bs}/{ml}/joint"] = r
-        print(bs, ml, "joint", {k: r.get(k) for k in ("ok", "oom", "sec_per_step_median", "peak_reserved_gb")})
+        print(bs, ml, "joint", {k: r.get(k) for k in ("ok", "oom", "slm_active", "sec_per_step_median",
+                                                      "peak_reserved_gb")})
+        if r["ok"] and not r["slm_active"]:
+            continue  # fits only because the SLM step never ran (e.g. bs=2: batch_percentage leaves 1 sample)
         if r["ok"]:
             chosen, slm_ok = (bs, ml), True
             break
@@ -82,8 +113,10 @@ def main():
         if not r["ok"]:
             sys.exit(f"phase {phase} failed at chosen setting:\n{r['tail']}")
         sps[phase], peak[phase] = r["sec_per_step_median"], r["peak_reserved_gb"]
-    cal = {"batch_size": bs, "max_len": ml, "slm_ok": slm_ok, "sec_per_step": sps, "peak_gb": peak,
-           "n_train": count("train_list.txt"), "n_val": count("val_list.txt"), "raw": results}
+    cal = {"batch_size": bs, "max_len": ml, "slm_ok": slm_ok, "mixed_precision": MIXED_PRECISION,
+           "sec_per_step": sps, "peak_gb": peak,
+           "n_train": count("train_list.txt"), "n_val": count("val_list.txt"),
+           "fit_check": f"longest {STRESS_N} train utterances, {STEPS} steps", "raw": results}
     out = ROOT / "configs/calibration.json"
     out.parent.mkdir(exist_ok=True)
     out.write_text(json.dumps(cal, indent=2), encoding="utf-8")

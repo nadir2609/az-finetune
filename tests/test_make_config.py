@@ -22,3 +22,15 @@ def test_build_config_overrides():
     assert c["save_freq"] == 1 and c["model_params"]["multispeaker"] is True
     assert c["data_params"]["train_data"].endswith("train_list.txt")
     assert c["pretrained_model"].endswith("epochs_2nd_00020.pth")
+
+
+def test_build_config_enables_grad_checkpoint_by_default():
+    c = build_config(batch_size=2, max_len=150, epochs=5, diff_epoch=1, joint_epoch=3, log_dir="X")
+    assert c["grad_checkpoint"] is True
+    off = build_config(2, 150, 5, 1, 3, "X", grad_checkpoint=False)
+    assert off["grad_checkpoint"] is False
+
+
+def test_build_config_mixed_precision_passthrough():
+    assert build_config(2, 150, 5, 1, 3, "X")["mixed_precision"] is None
+    assert build_config(2, 150, 5, 1, 3, "X", mixed_precision="bf16")["mixed_precision"] == "bf16"
