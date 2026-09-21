@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "monotonic_align"
+version = "0.1.0+numba"
+dependencies = ["numba", "numpy", "torch"]
+
+[tool.setuptools]
+packages = ["monotonic_align"]

@@ -1,0 +1,8 @@
+pyproject.toml
+monotonic_align/__init__.py
+monotonic_align/core.py
+monotonic_align.egg-info/PKG-INFO
+monotonic_align.egg-info/SOURCES.txt
+monotonic_align.egg-info/dependency_links.txt
+monotonic_align.egg-info/requires.txt
+monotonic_align.egg-info/top_level.txt
