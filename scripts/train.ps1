@@ -2,12 +2,13 @@
 Starts (or resumes) the Azerbaijani StyleTTS2 fine-tune.
   .\scripts\train.ps1                 # fresh run, 7.5 h hard cap
   .\scripts\train.ps1 -Resume         # continue from newest checkpoint in runs\az_ft
-  .\scripts\train.ps1 -MaxHours 3     # custom cap (use remaining budget when resuming)
+  .\scripts\train.ps1 -MaxHours 3     # total wall-clock cap across the run and any auto-resumes
   .\scripts\train.ps1 -Force          # skip the free-VRAM precheck (warn instead of stop)
   .\scripts\train.ps1 -DryRun         # print the command(s) that would run; never starts training
 On a crash (non-zero exit) the script auto-resumes from the newest checkpoint, up to -MaxRestarts
 times, as long as time remains in the -MaxHours wall-clock budget (measured from this launcher's
-own start, across all restarts).
+own start, across all restarts - each restart is handed only the remaining budget, so the total
+never exceeds -MaxHours).
 Monitor in a second terminal:  .\.venv\Scripts\python.exe scripts\monitor.py --follow 60
 TensorBoard:                    .\.venv\Scripts\tensorboard.exe --logdir runs\az_ft\tensorboard
 #>
@@ -16,17 +17,14 @@ param(
     [switch]$Resume,
     [switch]$Force,
     [int]$MaxRestarts = 3,
-    [switch]$DryRun,
-    # Internal test hook: overrides the calibrated required-free-VRAM value so the precheck's
-    # failure path can be exercised without training and without needing another app to actually
-    # hog VRAM. Not documented above; leave 0 in normal use.
-    [double]$TestRequiredFreeGB = 0,
-    # Internal test hook: comma-separated exit codes (one per attempt, last one repeats) used to
-    # replace the real training invocation with `python -c "import sys; sys.exit(N)"` so the
-    # crash/auto-resume/restart-budget loop can be exercised without ever calling train_finetune.py.
-    # Not documented above; leave empty in normal use.
-    [string]$TestStubExitCodes = ""
+    [switch]$DryRun
 )
+
+function Get-NewestCheckpoint {
+    param([string]$Dir)
+    Get-ChildItem $Dir -Filter "epoch_2nd_*.pth" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Py = Join-Path $Root ".venv\Scripts\python.exe"
@@ -41,9 +39,7 @@ $env:PYTORCH_CUDA_ALLOC_CONF = "expandable_segments:True"
 
 # --- Free-VRAM precheck (replaces a simple "used > 1500 MiB" warning) ---
 $requiredFreeGB = 6.866
-if ($TestRequiredFreeGB -gt 0) {
-    $requiredFreeGB = $TestRequiredFreeGB
-} elseif (Test-Path $Calibration) {
+if (Test-Path $Calibration) {
     $cal = Get-Content $Calibration -Raw | ConvertFrom-Json
     if ($cal.free_gb_at_launch) { $requiredFreeGB = [double]$cal.free_gb_at_launch }
 } else {
@@ -79,17 +75,10 @@ while ($true) {
 
     $argsList = @("train_finetune.py", "-p", $Config, "--max_hours", $remainingH)
     if ($resumeThisLaunch) {
-        $ckpt = Get-ChildItem $LogDir -Filter "epoch_2nd_*.pth" -ErrorAction SilentlyContinue |
-                Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        $ckpt = Get-NewestCheckpoint -Dir $LogDir
         if (-not $ckpt) { throw "No checkpoint in $LogDir to resume from." }
         Write-Host "Resuming from $($ckpt.FullName)"
         $argsList += @("--resume_from", $ckpt.FullName)
-    }
-
-    if ($TestStubExitCodes) {
-        $codes = $TestStubExitCodes -split ","
-        $idx = [Math]::Min($restarts, $codes.Length - 1)
-        $argsList = @("-c", "import sys; sys.exit($($codes[$idx].Trim()))")
     }
 
     $startMsg = "Training started $(Get-Date) - attempt $($restarts + 1) (restart $restarts of $MaxRestarts) - " + `
@@ -115,8 +104,7 @@ while ($true) {
     Write-Warning "Training process exited with code $exitCode."
     $elapsedH = ((Get-Date) - $launcherStart).TotalHours
     $remainingH = $MaxHours - $elapsedH
-    $ckpt = Get-ChildItem $LogDir -Filter "epoch_2nd_*.pth" -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $ckpt = Get-NewestCheckpoint -Dir $LogDir
 
     if (($restarts -lt $MaxRestarts) -and ($remainingH -gt 0.25) -and $ckpt) {
         $restarts++
