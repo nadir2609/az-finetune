@@ -1,5 +1,5 @@
 diff --git a/Modules/hifigan.py b/Modules/hifigan.py
-index e36f95a..0597c54 100644
+index e36f95a..2132edd 100644
 --- a/Modules/hifigan.py
 +++ b/Modules/hifigan.py
 @@ -8,6 +8,14 @@ from .utils import init_weights, get_padding
@@ -59,7 +59,7 @@ index e36f95a..0597c54 100644
              x = xs / self.num_kernels
          x = x + (1 / self.alphas[i+1]) * (torch.sin(self.alphas[i+1] * x) ** 2)
          x = self.conv_post(x)
-@@ -441,9 +452,12 @@ class Decoder(nn.Module):
+@@ -441,9 +452,18 @@ class Decoder(nn.Module):
          
          
          self.generator = Generator(style_dim, resblock_kernel_sizes, upsample_rates, upsample_initial_channel, resblock_dilation_sizes, upsample_kernel_sizes)
@@ -67,12 +67,18 @@ index e36f95a..0597c54 100644
  
          
      def forward(self, asr, F0_curve, N, s):
++        # The vocoder always runs in fp32, even when the training step uses bf16 autocast.
++        # For fp32 inputs outside autocast (inference) this is a no-op: .float() returns the same tensor.
++        with torch.autocast('cuda', enabled=False):
++            return self._forward(asr.float(), F0_curve.float(), N.float(), s.float())
++
++    def _forward(self, asr, F0_curve, N, s):
 +        ck = self.grad_checkpoint
 +        self.generator.grad_checkpoint = ck
          if self.training:
              downlist = [0, 3, 7]
              F0_down = downlist[random.randint(0, 2)]
-@@ -459,7 +473,7 @@ class Decoder(nn.Module):
+@@ -459,7 +479,7 @@ class Decoder(nn.Module):
          N = self.N_conv(N.unsqueeze(1))
          
          x = torch.cat([asr, F0, N], axis=1)
@@ -81,7 +87,7 @@ index e36f95a..0597c54 100644
          
          asr_res = self.asr_res(asr)
          
-@@ -467,7 +481,7 @@ class Decoder(nn.Module):
+@@ -467,7 +487,7 @@ class Decoder(nn.Module):
          for block in self.decode:
              if res:
                  x = torch.cat([x, asr_res, F0, N], axis=1)
@@ -133,7 +139,7 @@ index 84bbb03..e8095f1 100644
          
          
 diff --git a/train_finetune.py b/train_finetune.py
-index 3c65074..fbb490c 100644
+index 3c65074..fceb803 100644
 --- a/train_finetune.py
 +++ b/train_finetune.py
 @@ -12,6 +12,7 @@ import librosa
@@ -680,7 +686,7 @@ index 3c65074..fbb490c 100644
          print('Epochs:', epoch + 1)
          logger.info('Validation loss: %.3f, Dur loss: %.3f, F0 loss: %.3f' % (loss_test / iters_test, loss_align / iters_test, loss_f / iters_test) + '\n\n\n')
          print('\n\n\n')
-@@ -702,6 +764,26 @@ def main(config_path):
+@@ -702,6 +764,28 @@ def main(config_path):
                  with open(osp.join(log_dir, osp.basename(config_path)), 'w') as outfile:
                      yaml.dump(config, outfile, default_flow_style=True)
  
@@ -703,7 +709,9 @@ index 3c65074..fbb490c 100644
 +                       'sec_per_step_median': float(np.median(warm)) if warm else None,
 +                       'peak_reserved_gb': torch.cuda.max_memory_reserved() / 1024 ** 3,
 +                       'peak_allocated_gb': torch.cuda.max_memory_allocated() / 1024 ** 3,
-+                       'stop_reason': stop_reason}, f)
++                       'stop_reason': stop_reason,
++                       'cap_gb': vram_frac * total_b / 1024 ** 3,
++                       'free_gb_at_launch': free_b / 1024 ** 3}, f)
 +
 +
  if __name__=="__main__":

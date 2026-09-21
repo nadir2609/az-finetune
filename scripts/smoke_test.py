@@ -46,6 +46,15 @@ def stress_list():
     return out
 
 
+def vram_conditions(runs):
+    """Tightest per-process VRAM cap / free VRAM at launch over the successful runs (None if none)."""
+    ok = [r for r in runs if r.get("ok") and r.get("cap_gb") is not None]
+    if not ok:
+        return {"cap_gb": None, "free_gb_at_launch": None}
+    return {"cap_gb": round(min(r["cap_gb"] for r in ok), 3),
+            "free_gb_at_launch": round(min(r["free_gb_at_launch"] for r in ok), 3)}
+
+
 def run_phase(bs, max_len, phase, max_hours=1.0, max_steps=STEPS):
     """phase: 'a' (acoustic only), 'diff' (+style diffusion), 'joint' (+SLM adversarial)."""
     diff_epoch, joint_epoch = {"a": (99, 99), "diff": (0, 99), "joint": (0, 0)}[phase]
@@ -101,8 +110,13 @@ def main():
                 sys.exit(f"non-OOM failure:\n{r['tail']}")
     if chosen is None:
         sys.exit("nothing fits in VRAM - close other GPU apps and retry")
-    bs, ml = chosen
-    sps, peak = {}, {}
+    write_calibration(*chosen, slm_ok, results)
+
+
+def write_calibration(bs, ml, slm_ok, results):
+    """Measure every needed phase at the chosen setting (reusing runs already in `results`) and write
+    configs/calibration.json, including the VRAM conditions the numbers were measured under."""
+    sps, peak, used = {}, {}, []
     for phase in ("a", "diff", "joint"):
         key = f"{bs}/{ml}/{phase}"
         if phase == "joint" and not slm_ok:
@@ -113,8 +127,9 @@ def main():
         if not r["ok"]:
             sys.exit(f"phase {phase} failed at chosen setting:\n{r['tail']}")
         sps[phase], peak[phase] = r["sec_per_step_median"], r["peak_reserved_gb"]
+        used.append(r)
     cal = {"batch_size": bs, "max_len": ml, "slm_ok": slm_ok, "mixed_precision": MIXED_PRECISION,
-           "sec_per_step": sps, "peak_gb": peak,
+           "sec_per_step": sps, "peak_gb": peak, **vram_conditions(used),
            "n_train": count("train_list.txt"), "n_val": count("val_list.txt"),
            "fit_check": f"longest {STRESS_N} train utterances, {STEPS} steps", "raw": results}
     out = ROOT / "configs/calibration.json"

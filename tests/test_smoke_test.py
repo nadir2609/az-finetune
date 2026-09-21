@@ -18,3 +18,12 @@ def test_longest_lines_picks_n_longest_in_descending_order():
     lines = ["a.wav|x|0", "b.wav|y|0", "c.wav|z|0", "d.wav|w|0"]
     frames = {"a.wav": 10, "b.wav": 40, "c.wav": 30, "d.wav": 20}
     assert longest_lines(lines, lambda wav: frames[wav], 2) == ["b.wav|y|0", "c.wav|z|0"]
+
+
+def test_vram_conditions_reports_tightest_run():
+    from smoke_test import vram_conditions
+    runs = [{"ok": True, "cap_gb": 6.57, "free_gb_at_launch": 7.17},
+            {"ok": True, "cap_gb": 6.50, "free_gb_at_launch": 7.10},
+            {"ok": False, "oom": True}]
+    assert vram_conditions(runs) == {"cap_gb": 6.5, "free_gb_at_launch": 7.1}
+    assert vram_conditions([{"ok": False}]) == {"cap_gb": None, "free_gb_at_launch": None}
