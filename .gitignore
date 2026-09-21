@@ -1,0 +1,10 @@
+# large / generated artifacts
+audio/
+data/wavs/
+.venv/
+runs/
+StyleTTS2/
+*.pth
+*.t7
+__pycache__/
+.pytest_cache/
