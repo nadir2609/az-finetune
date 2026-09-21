@@ -61,7 +61,15 @@ class Synth:
         for key in self.model:
             if key in state:
                 sd = OrderedDict((k[7:] if k.startswith("module.") else k, v) for k, v in state[key].items())
-                self.model[key].load_state_dict(sd, strict=False)
+                result = self.model[key].load_state_dict(sd, strict=False)
+                missing, unexpected = result.missing_keys, result.unexpected_keys
+                if missing or unexpected:
+                    print(f"[synthesize] WARNING {key}: {len(missing)} missing / {len(unexpected)} unexpected "
+                          f"state_dict key(s) after loading checkpoint")
+                    if missing:
+                        print(f"  missing: {missing}")
+                    if unexpected:
+                        print(f"  unexpected: {unexpected}")
         self.device = device
         for key in self.model:
             self.model[key].eval().to(device)
@@ -127,11 +135,16 @@ def main():
     ap.add_argument("--embedding_scale", type=float, default=1.5)
     a = ap.parse_args()
 
+    # Resolve any user-supplied relative paths against the caller's cwd now --
+    # Synth.__init__ chdir's into StyleTTS2/ internally, so a relative path
+    # captured only as a string would otherwise be (re)interpreted relative to
+    # StyleTTS2/ instead of where the user invoked this script from.
     run_cfg = ROOT / "runs/az_ft/config_ft_az.yml"
-    config = a.config or str(run_cfg if run_cfg.exists() else STTS / "Models/LibriTTS/config.yml")
+    checkpoint = Path(a.checkpoint).resolve()
+    config = Path(a.config).resolve() if a.config else (run_cfg if run_cfg.exists() else STTS / "Models/LibriTTS/config.yml")
     val_first = (ROOT / "data/val_list.txt").read_text(encoding="utf-8").splitlines()[0].split("|")
-    ref = a.ref or str(ROOT / "data/wavs" / val_first[0])
-    out_dir = Path(a.out_dir or ROOT / "runs/az_ft/samples" / Path(a.checkpoint).stem)
+    ref = Path(a.ref).resolve() if a.ref else (ROOT / "data/wavs" / val_first[0])
+    out_dir = (Path(a.out_dir).resolve() if a.out_dir else ROOT / "runs/az_ft/samples" / checkpoint.stem)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     texts = a.text or DEFAULT_TEXTS
@@ -140,7 +153,7 @@ def main():
         texts, ipas = texts + ["<val> " + val_first[0]], ipas + [val_first[1]]
         shutil.copy(ROOT / "data/wavs" / val_first[0], out_dir / f"gt_{val_first[0]}")
 
-    synth = Synth(config, a.checkpoint)
+    synth = Synth(config, checkpoint)
     ref_s = synth.compute_style(ref)
     for n, (t, ipa) in enumerate(zip(texts, ipas), 1):
         wav = synth(ipa, ref_s, a.alpha, a.beta, a.steps, a.embedding_scale)
