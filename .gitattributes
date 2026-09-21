@@ -1,0 +1,4 @@
+data/train_list.txt text eol=lf
+data/val_list.txt text eol=lf
+data/OOD_texts.txt text eol=lf
+data/prep_report.json text eol=lf

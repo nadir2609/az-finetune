@@ -1,0 +1,16 @@
+{
+  "total_rows": 2432,
+  "kept": 2432,
+  "train": 2310,
+  "val": 122,
+  "rejected": [],
+  "hours": 3.152,
+  "duration_s": {
+    "min": 2.0,
+    "mean": 4.666378289473684,
+    "max": 10.72,
+    "p05": 3.2794,
+    "p95": 6.48
+  },
+  "clipped_inputs": 0
+}
