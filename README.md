@@ -117,9 +117,19 @@ paths, and picks the largest epoch count that fits inside a time budget
   gradient checkpointing; the step runs under bf16 autocast except the
   HiFi-GAN decoder/vocoder and F0/STFT losses, which are forced to fp32.
 - Fit check: `cap_gb: 6.573` (per-process VRAM cap, derived from free VRAM at
-  launch), `free_gb_at_launch: 6.866`. Peak measured: **5.93 GB** allocated
-  (acoustic-only phase) / **6.56 GB** allocated (diffusion phase) against the
-  6.573 GB cap — headroom is tight (~0.6 GB worst case).
+  launch), `free_gb_at_launch: 6.866`. Two different numbers matter here —
+  **allocated** (memory actually holding tensors) vs **reserved** (the
+  allocator's cache, including fragmentation; this is what `monitor.py`'s
+  `peak_gb` shows): peak **allocated** was **5.53 GB** (acoustic-only phase) /
+  **5.99 GB** (diffusion phase); peak **reserved** was **5.93 GB** /
+  **6.56 GB** — the diffusion phase's reserved figure came within 0.02 GB of
+  the 6.573 GB cap when using the default allocator. With
+  `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` set (which `train.ps1`
+  does — see below), the same diffusion-phase run reserved only ~6.39 GB at
+  essentially the same step speed. **Conclusion: it fits, but margin is
+  thin** — allocated headroom is only ~0.6 GB worst case (diffusion phase vs.
+  the cap), which is why closing other GPU apps before launch matters; the
+  precheck described below exists to enforce exactly that.
 
 **Resulting schedule** (`configs/config_ft_az.yml`): **11 epochs**, style
 diffusion starts at epoch 2 (0-indexed `diff_epoch: 2`), joint/SLM epoch is set
@@ -241,8 +251,11 @@ same text and speaker, so it's the most direct fidelity check available.
 - **OOM (`torch.OutOfMemoryError`)**: close other GPU-using apps (browser,
   Steam, etc.), then re-run `scripts\smoke_test.py` to re-measure what
   actually fits and regenerate `configs/calibration.json` +
-  `configs/config_ft_az.yml`. Headroom at the current calibrated setting is
-  only ~0.6 GB, so a busier desktop than at calibration time can tip it over.
+  `configs/config_ft_az.yml`. Allocated headroom at the current calibrated
+  setting is only ~0.6 GB (5.99 GB allocated vs. the 6.573 GB cap, worst-case
+  diffusion phase), and reserved memory (the allocator's cache — what
+  `monitor.py`'s `peak_gb` shows) sits even closer to the cap, so a busier
+  desktop than at calibration time can tip it over.
 - **NaN losses / frequent `NaN skips`**: the training loop already skips the
   optimizer step and continues on a NaN `g_loss`, but if it happens often,
   lower `batch_size` isn't the usual first lever here (it's already at the
