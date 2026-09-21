@@ -1,5 +1,5 @@
 diff --git a/train_finetune.py b/train_finetune.py
-index 3c65074..e0fe3f2 100644
+index 3c65074..bd030ba 100644
 --- a/train_finetune.py
 +++ b/train_finetune.py
 @@ -12,6 +12,7 @@ import librosa
@@ -10,7 +10,7 @@ index 3c65074..e0fe3f2 100644
  warnings.simplefilter('ignore')
  from torch.utils.tensorboard import SummaryWriter
  
-@@ -49,8 +50,12 @@ logger.addHandler(handler)
+@@ -49,12 +50,18 @@ logger.addHandler(handler)
  
  @click.command()
  @click.option('-p', '--config_path', default='Configs/config_ft.yml', type=str)
@@ -25,7 +25,14 @@ index 3c65074..e0fe3f2 100644
      
      log_dir = config['log_dir']
      if not osp.exists(log_dir): os.makedirs(log_dir, exist_ok=True)
-@@ -90,12 +95,19 @@ def main(config_path):
+-    shutil.copy(config_path, osp.join(log_dir, osp.basename(config_path)))
++    config_copy_dst = osp.join(log_dir, osp.basename(config_path))
++    if osp.abspath(config_path) != osp.abspath(config_copy_dst):
++        shutil.copy(config_path, config_copy_dst)
+     writer = SummaryWriter(log_dir + "/tensorboard")
+ 
+     # write logs
+@@ -90,12 +97,19 @@ def main(config_path):
      train_list, val_list = get_data_path_list(train_path, val_path)
      device = 'cuda'
  
@@ -46,7 +53,7 @@ index 3c65074..e0fe3f2 100644
                                          dataset_config={},
                                          device=device)
  
-@@ -210,7 +222,12 @@ def main(config_path):
+@@ -210,7 +224,12 @@ def main(config_path):
      if load_pretrained:
          model, optimizer, start_epoch, iters = load_checkpoint(model,  optimizer, config['pretrained_model'],
                                      load_only_params=config.get('load_only_params', True))
@@ -60,7 +67,7 @@ index 3c65074..e0fe3f2 100644
      n_down = model.text_aligner.n_down
  
      best_loss = float('inf')  # best test loss
-@@ -238,8 +255,12 @@ def main(config_path):
+@@ -238,8 +257,12 @@ def main(config_path):
                                  skip_update=slmadv_params.iter, 
                                  sig=slmadv_params.sig
                                 )
@@ -75,7 +82,7 @@ index 3c65074..e0fe3f2 100644
      for epoch in range(start_epoch, epochs):
          running_loss = 0
          start_time = time.time()
-@@ -256,6 +277,7 @@ def main(config_path):
+@@ -256,6 +279,7 @@ def main(config_path):
          model.mpd.train()
  
          for i, batch in enumerate(train_dataloader):
@@ -83,7 +90,7 @@ index 3c65074..e0fe3f2 100644
              waves = batch[0]
              batch = [b.to(device) for b in batch[1:]]
              texts, input_lengths, ref_texts, ref_lengths, mels, mel_input_length, ref_mels = batch
-@@ -456,8 +478,9 @@ def main(config_path):
+@@ -456,8 +480,9 @@ def main(config_path):
              running_loss += loss_mel.item()
              g_loss.backward()
              if torch.isnan(g_loss):
@@ -95,7 +102,7 @@ index 3c65074..e0fe3f2 100644
  
              optimizer.step('bert_encoder')
              optimizer.step('bert')
-@@ -540,7 +563,22 @@ def main(config_path):
+@@ -540,7 +565,22 @@ def main(config_path):
                          optimizer.step('wd')
  
              iters = iters + 1
@@ -119,7 +126,7 @@ index 3c65074..e0fe3f2 100644
              if (i+1)%log_interval == 0:
                  logger.info ('Epoch [%d/%d], Step [%d/%d], Loss: %.5f, Disc Loss: %.5f, Dur Loss: %.5f, CE Loss: %.5f, Norm Loss: %.5f, F0 Loss: %.5f, LM Loss: %.5f, Gen Loss: %.5f, Sty Loss: %.5f, Diff Loss: %.5f, DiscLM Loss: %.5f, GenLM Loss: %.5f, SLoss: %.5f, S2S Loss: %.5f, Mono Loss: %.5f'
                      %(epoch+1, epochs, i+1, len(train_list)//batch_size, running_loss / log_interval, d_loss, loss_dur, loss_ce, loss_norm_rec, loss_F0_rec, loss_lm, loss_gen_all, loss_sty, loss_diff, d_loss_slm, loss_gen_lm, s_loss, loss_s2s, loss_mono))
-@@ -561,7 +599,10 @@ def main(config_path):
+@@ -561,7 +601,10 @@ def main(config_path):
                  running_loss = 0
                  
                  print('Time elasped:', time.time()-start_time)
@@ -131,7 +138,7 @@ index 3c65074..e0fe3f2 100644
          loss_test = 0
          loss_align = 0
          loss_f = 0
-@@ -673,6 +714,7 @@ def main(config_path):
+@@ -673,6 +716,7 @@ def main(config_path):
                  except:
                      continue
  
@@ -139,7 +146,7 @@ index 3c65074..e0fe3f2 100644
          print('Epochs:', epoch + 1)
          logger.info('Validation loss: %.3f, Dur loss: %.3f, F0 loss: %.3f' % (loss_test / iters_test, loss_align / iters_test, loss_f / iters_test) + '\n\n\n')
          print('\n\n\n')
-@@ -702,6 +744,26 @@ def main(config_path):
+@@ -702,6 +746,26 @@ def main(config_path):
                  with open(osp.join(log_dir, osp.basename(config_path)), 'w') as outfile:
                      yaml.dump(config, outfile, default_flow_style=True)
  
