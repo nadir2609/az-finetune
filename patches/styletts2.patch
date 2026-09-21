@@ -1,0 +1,169 @@
+diff --git a/train_finetune.py b/train_finetune.py
+index 3c65074..e0fe3f2 100644
+--- a/train_finetune.py
++++ b/train_finetune.py
+@@ -12,6 +12,7 @@ import librosa
+ import click
+ import shutil
+ import warnings
++import json
+ warnings.simplefilter('ignore')
+ from torch.utils.tensorboard import SummaryWriter
+ 
+@@ -49,8 +50,12 @@ logger.addHandler(handler)
+ 
+ @click.command()
+ @click.option('-p', '--config_path', default='Configs/config_ft.yml', type=str)
+-def main(config_path):
+-    config = yaml.safe_load(open(config_path))
++@click.option('--max_hours', default=7.5, type=float, help='wall-clock cap; saves epoch_2nd_final.pth and exits')
++@click.option('--max_steps', default=0, type=int, help='stop after N train steps (smoke tests); 0 = off')
++@click.option('--stats_out', default='', type=str, help='write timing/VRAM stats json here on exit')
++@click.option('--resume_from', default='', type=str, help='checkpoint to resume (params + optimizer + epoch)')
++def main(config_path, max_hours, max_steps, stats_out, resume_from):
++    config = yaml.safe_load(open(config_path, encoding='utf-8'))
+     
+     log_dir = config['log_dir']
+     if not osp.exists(log_dir): os.makedirs(log_dir, exist_ok=True)
+@@ -90,12 +95,19 @@ def main(config_path):
+     train_list, val_list = get_data_path_list(train_path, val_path)
+     device = 'cuda'
+ 
++    # Hard VRAM cap: on Windows/WDDM an over-allocation silently spills to shared RAM (10x slower)
++    # instead of raising OOM. Cap to what is actually free so we get a real OOM instead.
++    free_b, total_b = torch.cuda.mem_get_info()
++    vram_frac = max(0.5, min(0.95, (free_b - 300 * 1024 ** 2) / total_b))
++    torch.cuda.set_per_process_memory_fraction(vram_frac)
++    logger.info('VRAM cap: %.2f GB of %.2f GB' % (vram_frac * total_b / 1024 ** 3, total_b / 1024 ** 3))
++
+     train_dataloader = build_dataloader(train_list,
+                                         root_path,
+                                         OOD_data=OOD_data,
+                                         min_length=min_length,
+                                         batch_size=batch_size,
+-                                        num_workers=2,
++                                        num_workers=config.get('num_workers', 2),
+                                         dataset_config={},
+                                         device=device)
+ 
+@@ -210,7 +222,12 @@ def main(config_path):
+     if load_pretrained:
+         model, optimizer, start_epoch, iters = load_checkpoint(model,  optimizer, config['pretrained_model'],
+                                     load_only_params=config.get('load_only_params', True))
+-        
++
++    if resume_from:
++        model, optimizer, last_epoch, _ = load_checkpoint(model, optimizer, resume_from, load_only_params=False)
++        start_epoch = last_epoch + 1
++        logger.info('Resumed from %s; continuing at epoch %d' % (resume_from, start_epoch + 1))
++
+     n_down = model.text_aligner.n_down
+ 
+     best_loss = float('inf')  # best test loss
+@@ -238,8 +255,12 @@ def main(config_path):
+                                 skip_update=slmadv_params.iter, 
+                                 sig=slmadv_params.sig
+                                )
+-    
+-    
++
++    run_start = time.time()
++    step_times = []
++    global_step = 0
++    stop_reason = None
++
+     for epoch in range(start_epoch, epochs):
+         running_loss = 0
+         start_time = time.time()
+@@ -256,6 +277,7 @@ def main(config_path):
+         model.mpd.train()
+ 
+         for i, batch in enumerate(train_dataloader):
++            step_t0 = time.time()
+             waves = batch[0]
+             batch = [b.to(device) for b in batch[1:]]
+             texts, input_lengths, ref_texts, ref_lengths, mels, mel_input_length, ref_mels = batch
+@@ -456,8 +478,9 @@ def main(config_path):
+             running_loss += loss_mel.item()
+             g_loss.backward()
+             if torch.isnan(g_loss):
+-                from IPython.core.debugger import set_trace
+-                set_trace()
++                logger.warning('NaN loss at epoch %d step %d - skipping update' % (epoch + 1, i + 1))
++                optimizer.zero_grad()
++                continue
+ 
+             optimizer.step('bert_encoder')
+             optimizer.step('bert')
+@@ -540,7 +563,22 @@ def main(config_path):
+                         optimizer.step('wd')
+ 
+             iters = iters + 1
+-            
++
++            torch.cuda.synchronize()
++            step_times.append(time.time() - step_t0)
++            global_step += 1
++            elapsed_h = (time.time() - run_start) / 3600
++            if (i + 1) % log_interval == 0:
++                logger.info('PERF epoch=%d step=%d/%d sec_per_step=%.3f peak_gb=%.2f elapsed_h=%.3f max_hours=%.2f'
++                            % (epoch + 1, i + 1, len(train_dataloader), float(np.mean(step_times[-log_interval:])),
++                               torch.cuda.max_memory_reserved() / 1024 ** 3, elapsed_h, max_hours))
++            if max_steps and global_step >= max_steps:
++                stop_reason = 'max_steps'
++                break
++            if elapsed_h >= max_hours:
++                stop_reason = 'max_hours'
++                break
++
+             if (i+1)%log_interval == 0:
+                 logger.info ('Epoch [%d/%d], Step [%d/%d], Loss: %.5f, Disc Loss: %.5f, Dur Loss: %.5f, CE Loss: %.5f, Norm Loss: %.5f, F0 Loss: %.5f, LM Loss: %.5f, Gen Loss: %.5f, Sty Loss: %.5f, Diff Loss: %.5f, DiscLM Loss: %.5f, GenLM Loss: %.5f, SLoss: %.5f, S2S Loss: %.5f, Mono Loss: %.5f'
+                     %(epoch+1, epochs, i+1, len(train_list)//batch_size, running_loss / log_interval, d_loss, loss_dur, loss_ce, loss_norm_rec, loss_F0_rec, loss_lm, loss_gen_all, loss_sty, loss_diff, d_loss_slm, loss_gen_lm, s_loss, loss_s2s, loss_mono))
+@@ -561,7 +599,10 @@ def main(config_path):
+                 running_loss = 0
+                 
+                 print('Time elasped:', time.time()-start_time)
+-            
++
++        if stop_reason:
++            break
++
+         loss_test = 0
+         loss_align = 0
+         loss_f = 0
+@@ -673,6 +714,7 @@ def main(config_path):
+                 except:
+                     continue
+ 
++        iters_test = max(iters_test, 1)
+         print('Epochs:', epoch + 1)
+         logger.info('Validation loss: %.3f, Dur loss: %.3f, F0 loss: %.3f' % (loss_test / iters_test, loss_align / iters_test, loss_f / iters_test) + '\n\n\n')
+         print('\n\n\n')
+@@ -702,6 +744,26 @@ def main(config_path):
+                 with open(osp.join(log_dir, osp.basename(config_path)), 'w') as outfile:
+                     yaml.dump(config, outfile, default_flow_style=True)
+ 
+-                            
++    if stop_reason == 'max_hours':
++        state = {
++            'net': {key: model[key].state_dict() for key in model},
++            'optimizer': optimizer.state_dict(),
++            'iters': iters,
++            'val_loss': float('nan'),
++            'epoch': epoch - 1,  # resume restarts the interrupted epoch
++        }
++        torch.save(state, osp.join(log_dir, 'epoch_2nd_final.pth'))
++        logger.info('Time budget of %.2f h reached - saved epoch_2nd_final.pth and stopped cleanly.' % max_hours)
++    if stats_out:
++        warm = step_times[3:] if len(step_times) > 6 else step_times
++        with open(stats_out, 'w', encoding='utf-8') as f:
++            json.dump({'steps': global_step,
++                       'sec_per_step_mean': float(np.mean(warm)) if warm else None,
++                       'sec_per_step_median': float(np.median(warm)) if warm else None,
++                       'peak_reserved_gb': torch.cuda.max_memory_reserved() / 1024 ** 3,
++                       'peak_allocated_gb': torch.cuda.max_memory_allocated() / 1024 ** 3,
++                       'stop_reason': stop_reason}, f)
++
++
+ if __name__=="__main__":
+     main()
