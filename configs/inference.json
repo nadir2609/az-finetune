@@ -1,0 +1,22 @@
+{
+  "checkpoint": "runs\\az_ft\\epoch_2nd_00010.pth",
+  "ref_strategy": "single",
+  "ref": [
+    "data/wavs/000008.wav"
+  ],
+  "alpha": 0.3,
+  "beta": 0.5,
+  "embedding_scale": 1.0,
+  "speed": 1.2,
+  "steps": 10,
+  "metrics": {
+    "dur_ratio": 1.0158170209029045,
+    "f0_ratio": 0.8873952803957681,
+    "score": 0.13515799391492783
+  },
+  "baseline": {
+    "dur_ratio": 1.1678546063311688,
+    "f0_ratio": 0.7955688002073077,
+    "score": 0.3838663439737704
+  }
+}
