@@ -1,5 +1,7 @@
 """Synthesize Azerbaijani test sentences from a StyleTTS2 checkpoint (adapted from Demo/Inference_LibriTTS.ipynb)."""
 import argparse
+import csv
+import json
 import os
 import shutil
 import sys
@@ -26,6 +28,48 @@ DEFAULT_TEXTS = [
     "Müraciətiniz qeydə alındı, tezliklə əməkdaşlarımız sizinlə əlaqə saxlayacaq və bütün suallarınızı cavablandıracaqlar.",
 ]
 to_mel = torchaudio.transforms.MelSpectrogram(n_mels=80, n_fft=2048, win_length=1200, hop_length=300)
+
+
+INFERENCE_DEFAULTS = {"alpha": 0.3, "beta": 0.7, "embedding_scale": 1.5, "steps": 10, "speed": 1.0, "ref": None}
+
+
+def load_inference_defaults(path=ROOT / "configs/inference.json"):
+    """Built-in defaults, overridden by the tuned settings eval_tts.py writes (if present)."""
+    d = dict(INFERENCE_DEFAULTS)
+    if Path(path).exists():
+        d.update(json.loads(Path(path).read_text(encoding="utf-8")))
+    return d
+
+
+def g2p_for_config(config):
+    """Runs trained before the rule-based G2P have no `g2p` key: their labels came from espeak."""
+    return config.get("g2p", "espeak")
+
+
+def default_config(checkpoint):
+    """The run config saved next to the checkpoint (it records the run's g2p and sigma_data), else the
+    original run's, else upstream LibriTTS."""
+    for cfg in (Path(checkpoint).parent / "config_ft_az.yml", ROOT / "runs/az_ft/config_ft_az.yml"):
+        if cfg.exists():
+            return cfg
+    return STTS / "Models/LibriTTS/config.yml"
+
+
+def metadata_text(wav_name):
+    """Original text of a dataset clip (data/wavs/000123.wav <- metadata.csv 000123.mp3)."""
+    stem = Path(wav_name).stem
+    with open(ROOT / "metadata.csv", encoding="utf-8", newline="") as f:
+        return next(r["text"] for r in csv.DictReader(f) if Path(r["filename"]).stem == stem)
+
+
+def predict_durations(dur_logits, speed=1.0):
+    """Frames per token from the duration projection's logits; speed > 1 speaks faster."""
+    duration = torch.sigmoid(dur_logits).sum(axis=-1) / speed
+    return torch.round(duration.squeeze()).clamp(min=1)
+
+
+def average_styles(styles):
+    return torch.stack(styles).mean(dim=0)
 
 
 def length_to_mask(lengths):
@@ -55,6 +99,7 @@ class Synth:
             plbert = load_plbert(config["PLBERT_dir"])
             self.params = recursive_munch(config["model_params"])
             self.model = build_model(self.params, text_aligner, pitch_extractor, plbert)
+            self.g2p = g2p_for_config(config)
         finally:
             os.chdir(cwd)
         state = torch.load(checkpoint, map_location="cpu")["net"]
@@ -87,7 +132,12 @@ class Synth:
                           self.model.predictor_encoder(mel.unsqueeze(1))], dim=1)
 
     @torch.no_grad()
-    def __call__(self, ipa, ref_s, alpha=0.3, beta=0.7, steps=10, embedding_scale=1.5):
+    def compute_styles(self, paths):
+        """Mean style over several reference clips (smooths out one clip's idiosyncratic prosody)."""
+        return average_styles([self.compute_style(p) for p in paths])
+
+    @torch.no_grad()
+    def __call__(self, ipa, ref_s, alpha=0.3, beta=0.7, steps=10, embedding_scale=1.5, speed=1.0):
         m, dev = self.model, self.device
         tokens = self.cleaner(ipa)
         tokens.insert(0, 0)
@@ -104,8 +154,7 @@ class Synth:
         s = beta * s + (1 - beta) * ref_s[:, 128:]
         d = m.predictor.text_encoder(d_en, s, input_lengths, text_mask)
         x, _ = m.predictor.lstm(d)
-        duration = torch.sigmoid(m.predictor.duration_proj(x)).sum(axis=-1)
-        pred_dur = torch.round(duration.squeeze()).clamp(min=1)
+        pred_dur = predict_durations(m.predictor.duration_proj(x), speed)
         aln = torch.zeros(input_lengths, int(pred_dur.sum().data))
         c = 0
         for i in range(aln.size(0)):
@@ -123,40 +172,48 @@ class Synth:
 
 
 def main():
+    d = load_inference_defaults()
     ap = argparse.ArgumentParser()
     ap.add_argument("--checkpoint", required=True)
     ap.add_argument("--config", default=None)
-    ap.add_argument("--ref", default=None)
+    ap.add_argument("--ref", action="append", default=None,
+                    help="style reference wav; repeat to average several (default: configs/inference.json, "
+                         "else the first val clip)")
     ap.add_argument("--text", action="append", default=None)
     ap.add_argument("--out_dir", default=None)
-    ap.add_argument("--alpha", type=float, default=0.3)
-    ap.add_argument("--beta", type=float, default=0.7)
-    ap.add_argument("--steps", type=int, default=10)
-    ap.add_argument("--embedding_scale", type=float, default=1.5)
+    ap.add_argument("--alpha", type=float, default=d["alpha"])
+    ap.add_argument("--beta", type=float, default=d["beta"])
+    ap.add_argument("--steps", type=int, default=d["steps"])
+    ap.add_argument("--embedding_scale", type=float, default=d["embedding_scale"])
+    ap.add_argument("--speed", type=float, default=d["speed"], help=">1 speaks faster")
     a = ap.parse_args()
 
     # Resolve any user-supplied relative paths against the caller's cwd now --
     # Synth.__init__ chdir's into StyleTTS2/ internally, so a relative path
     # captured only as a string would otherwise be (re)interpreted relative to
     # StyleTTS2/ instead of where the user invoked this script from.
-    run_cfg = ROOT / "runs/az_ft/config_ft_az.yml"
     checkpoint = Path(a.checkpoint).resolve()
-    config = Path(a.config).resolve() if a.config else (run_cfg if run_cfg.exists() else STTS / "Models/LibriTTS/config.yml")
+    config = Path(a.config).resolve() if a.config else default_config(checkpoint)
     val_first = (ROOT / "data/val_list.txt").read_text(encoding="utf-8").splitlines()[0].split("|")
-    ref = Path(a.ref).resolve() if a.ref else (ROOT / "data/wavs" / val_first[0])
+    if a.ref:
+        refs = [Path(r).resolve() for r in a.ref]
+    elif d["ref"]:
+        refs = [ROOT / r for r in d["ref"]]  # inference.json paths are relative to the repo root
+    else:
+        refs = [ROOT / "data/wavs" / val_first[0]]
     out_dir = (Path(a.out_dir).resolve() if a.out_dir else ROOT / "runs/az_ft/samples" / checkpoint.stem)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    texts = a.text or DEFAULT_TEXTS
-    ipas = phonemize_texts(texts)
-    if a.text is None:  # add the val item (ground-truth IPA) for A/B against the real recording
-        texts, ipas = texts + ["<val> " + val_first[0]], ipas + [val_first[1]]
-        shutil.copy(ROOT / "data/wavs" / val_first[0], out_dir / f"gt_{val_first[0]}")
-
     synth = Synth(config, checkpoint)
-    ref_s = synth.compute_style(ref)
+    texts = a.text or DEFAULT_TEXTS
+    if a.text is None:  # add the val item for A/B against the real recording
+        texts = texts + [metadata_text(val_first[0])]
+        shutil.copy(ROOT / "data/wavs" / val_first[0], out_dir / f"gt_{val_first[0]}")
+    ipas = phonemize_texts(texts, g2p=synth.g2p)  # the G2P this checkpoint was trained with
+
+    ref_s = synth.compute_styles(refs)
     for n, (t, ipa) in enumerate(zip(texts, ipas), 1):
-        wav = synth(ipa, ref_s, a.alpha, a.beta, a.steps, a.embedding_scale)
+        wav = synth(ipa, ref_s, a.alpha, a.beta, a.steps, a.embedding_scale, a.speed)
         path = out_dir / f"{n:02d}.wav"
         sf.write(path, wav, 24000)
         print(f"{path}  ({len(wav)/24000:.1f}s)  {t}")
