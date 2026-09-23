@@ -1,15 +1,26 @@
-"""Progress view for runs/az_ft/train.log. Usage: monitor.py [--log PATH] [--follow SECONDS]"""
+"""Progress view for the current run's train.log (log_dir in configs/config_ft_az.yml).
+Usage: monitor.py [--log PATH] [--follow SECONDS]"""
 import argparse
 import re
 import subprocess
 import time
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[1]
 EPOCH_RE = re.compile(r"Epoch \[(\d+)/(\d+)\], Step \[(\d+)/(\d+)\], (.*)")
 PERF_RE = re.compile(r"PERF epoch=(\d+) step=(\d+)/(\d+) sec_per_step=([\d.]+) peak_gb=([\d.]+) "
                      r"elapsed_h=([\d.]+) max_hours=([\d.]+)")
 VAL_RE = re.compile(r"Validation loss: ([\d.naninf]+)")
+
+
+def default_log(config=ROOT / "configs/config_ft_az.yml"):
+    """train.log of the run the current config trains (the first run's if there is no config)."""
+    if Path(config).exists():
+        with open(config, encoding="utf-8") as f:
+            return Path(yaml.safe_load(f)["log_dir"]) / "train.log"
+    return ROOT / "runs/az_ft/train.log"
 
 
 def parse_log(text):
@@ -63,7 +74,7 @@ def render(s):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--log", default=str(ROOT / "runs/az_ft/train.log"))
+    ap.add_argument("--log", default=str(default_log()))
     ap.add_argument("--follow", type=float, default=0, help="refresh every N seconds")
     a = ap.parse_args()
     while True:

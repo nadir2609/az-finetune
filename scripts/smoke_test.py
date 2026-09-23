@@ -1,4 +1,5 @@
 """Capped (<=50 step) runs per training phase to measure VRAM + s/step. Never a real training run."""
+import argparse
 import json
 import os
 import re
@@ -17,6 +18,9 @@ STTS = ROOT / "StyleTTS2"
 PY = str(ROOT / ".venv/Scripts/python.exe")
 SMOKE = ROOT / "runs/smoke"
 CANDIDATES = [(4, 300), (4, 200), (3, 200), (2, 200), (2, 150), (2, 100)]  # (batch_size, max_len), best first
+# SLM adversarial clip window (slmadv min_len, max_len in frames), largest first. Upstream's 400/500 only
+# admits utterances > 5 s (most of this dataset is shorter) and does not fit 8 GB.
+SLM_WINDOWS = [(200, 300), (160, 240), (120, 200)]
 STEPS = 30
 MIXED_PRECISION = "bf16"  # rung 2 of the 8 GB memory ladder (fp32 + grad checkpointing alone OOMs)
 # Fit-check on the longest utterances: text aligner / BERT / style encoders run on the full utterance, so a
@@ -55,14 +59,28 @@ def vram_conditions(runs):
             "free_gb_at_launch": round(min(r["free_gb_at_launch"] for r in ok), 3)}
 
 
-def run_phase(bs, max_len, phase, max_hours=1.0, max_steps=STEPS):
+def joint_candidates(start=None):
+    """(batch_size, max_len, slm_window) to try for the joint phase, best first; `start` ("2/150") skips
+    the settings before it (e.g. ones a previous calibration already saw OOM)."""
+    cands = CANDIDATES
+    if start:
+        key = tuple(int(x) for x in start.split("/"))
+        if key not in CANDIDATES:
+            raise ValueError(f"--start {start} is not one of {CANDIDATES}")
+        cands = CANDIDATES[CANDIDATES.index(key):]
+    return [(bs, ml, w) for bs, ml in cands for w in SLM_WINDOWS]
+
+
+def run_phase(bs, max_len, phase, slm_window=None, max_hours=1.0, max_steps=STEPS):
     """phase: 'a' (acoustic only), 'diff' (+style diffusion), 'joint' (+SLM adversarial)."""
     diff_epoch, joint_epoch = {"a": (99, 99), "diff": (0, 99), "joint": (0, 0)}[phase]
-    log_dir = SMOKE / f"bs{bs}_len{max_len}_{phase}"
+    tag = f"_slm{slm_window[0]}-{slm_window[1]}" if phase == "joint" and slm_window else ""
+    log_dir = SMOKE / f"bs{bs}_len{max_len}_{phase}{tag}"
     shutil.rmtree(log_dir, ignore_errors=True)
     log_dir.mkdir(parents=True)
     cfg = build_config(bs, max_len, epochs=1, diff_epoch=diff_epoch, joint_epoch=joint_epoch,
-                       log_dir=str(log_dir), num_workers=0, mixed_precision=MIXED_PRECISION)
+                       log_dir=str(log_dir), num_workers=0, mixed_precision=MIXED_PRECISION,
+                       slm_window=slm_window)
     cfg["data_params"]["train_data"] = str(stress_list())
     cfg_path = log_dir / "config.yml"
     cfg_path.write_text(yaml.safe_dump(cfg, allow_unicode=True), encoding="utf-8")
@@ -82,26 +100,33 @@ def count(name):
     return sum(1 for l in (ROOT / "data" / name).read_text(encoding="utf-8").splitlines() if l.strip())
 
 
+def _key(bs, ml, phase, w=None):
+    return f"{bs}/{ml}/{phase}" + (f"/{w[0]}-{w[1]}" if w else "")
+
+
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--start", default=None, help='first "batch/max_len" candidate to try, e.g. 2/150')
+    args = ap.parse_args()
     results = {}
     chosen = None
-    for bs, ml in CANDIDATES:  # 1) find the largest setting where the heaviest phase (joint) fits
-        r = run_phase(bs, ml, "joint")
-        results[f"{bs}/{ml}/joint"] = r
-        print(bs, ml, "joint", {k: r.get(k) for k in ("ok", "oom", "slm_active", "sec_per_step_median",
-                                                      "peak_reserved_gb")})
-        if r["ok"] and not r["slm_active"]:
-            continue  # fits only because the SLM step never ran (e.g. bs=2: batch_percentage leaves 1 sample)
-        if r["ok"]:
-            chosen, slm_ok = (bs, ml), True
+    for bs, ml, w in joint_candidates(args.start):  # 1) largest setting where the SLM phase really runs
+        r = run_phase(bs, ml, "joint", slm_window=w)
+        results[_key(bs, ml, "joint", w)] = r
+        print(bs, ml, "joint", w, {k: r.get(k) for k in ("ok", "oom", "slm_active", "sec_per_step_median",
+                                                         "peak_reserved_gb")})
+        if r["ok"] and r["slm_active"]:
+            chosen, slm_ok, window = (bs, ml), True, w
             break
-        if not r["oom"]:
-            sys.exit(f"non-OOM failure - see runs/smoke/bs{bs}_len{ml}_joint/stdout.txt\n{r['tail']}")
+        if not r["ok"] and not r["oom"]:
+            run_dir = SMOKE / f"bs{bs}_len{ml}_joint_slm{w[0]}-{w[1]}"
+            sys.exit(f"non-OOM failure - see {run_dir}/stdout.txt\n{r['tail']}")
+        # OOM, or it fit only because the SLM step never ran: try a smaller window / setting
     if chosen is None:  # 2) SLM phase never fits: pick the best setting for the diffusion phase
-        slm_ok = False
-        for bs, ml in CANDIDATES:
+        slm_ok, window = False, None
+        for bs, ml in dict.fromkeys((b, m) for b, m, _ in joint_candidates(args.start)):
             r = run_phase(bs, ml, "diff")
-            results[f"{bs}/{ml}/diff"] = r
+            results[_key(bs, ml, "diff")] = r
             print(bs, ml, "diff", {k: r.get(k) for k in ("ok", "oom", "sec_per_step_median", "peak_reserved_gb")})
             if r["ok"]:
                 chosen = (bs, ml)
@@ -110,25 +135,26 @@ def main():
                 sys.exit(f"non-OOM failure:\n{r['tail']}")
     if chosen is None:
         sys.exit("nothing fits in VRAM - close other GPU apps and retry")
-    write_calibration(*chosen, slm_ok, results)
+    write_calibration(*chosen, slm_ok, results, window)
 
 
-def write_calibration(bs, ml, slm_ok, results):
+def write_calibration(bs, ml, slm_ok, results, slm_window=None):
     """Measure every needed phase at the chosen setting (reusing runs already in `results`) and write
     configs/calibration.json, including the VRAM conditions the numbers were measured under."""
     sps, peak, used = {}, {}, []
     for phase in ("a", "diff", "joint"):
-        key = f"{bs}/{ml}/{phase}"
+        key = _key(bs, ml, phase, slm_window if phase == "joint" else None)
         if phase == "joint" and not slm_ok:
             sps[phase], peak[phase] = None, None
             continue
-        r = results.get(key) or run_phase(bs, ml, phase)
+        r = results.get(key) or run_phase(bs, ml, phase, slm_window=slm_window)
         results[key] = r
         if not r["ok"]:
             sys.exit(f"phase {phase} failed at chosen setting:\n{r['tail']}")
         sps[phase], peak[phase] = r["sec_per_step_median"], r["peak_reserved_gb"]
         used.append(r)
-    cal = {"batch_size": bs, "max_len": ml, "slm_ok": slm_ok, "mixed_precision": MIXED_PRECISION,
+    cal = {"batch_size": bs, "max_len": ml, "slm_ok": slm_ok,
+           "slm_window": list(slm_window) if slm_window else None, "mixed_precision": MIXED_PRECISION,
            "sec_per_step": sps, "peak_gb": peak, **vram_conditions(used),
            "n_train": count("train_list.txt"), "n_val": count("val_list.txt"),
            "fit_check": f"longest {STRESS_N} train utterances, {STEPS} steps", "raw": results}

@@ -1,7 +1,7 @@
 <#
 Starts (or resumes) the Azerbaijani StyleTTS2 fine-tune.
   .\scripts\train.ps1                 # fresh run, 7.5 h hard cap
-  .\scripts\train.ps1 -Resume         # continue from newest checkpoint in runs\az_ft
+  .\scripts\train.ps1 -Resume         # continue from newest checkpoint in the config's log_dir
   .\scripts\train.ps1 -MaxHours 3     # total wall-clock cap across the run and any auto-resumes
   .\scripts\train.ps1 -Force          # skip the free-VRAM precheck (warn instead of stop)
   .\scripts\train.ps1 -DryRun         # print the command(s) that would run; never starts training
@@ -10,7 +10,8 @@ times, as long as time remains in the -MaxHours wall-clock budget (measured from
 own start, across all restarts - each restart is handed only the remaining budget, so the total
 never exceeds -MaxHours).
 Monitor in a second terminal:  .\.venv\Scripts\python.exe scripts\monitor.py --follow 60
-TensorBoard:                    .\.venv\Scripts\tensorboard.exe --logdir runs\az_ft\tensorboard
+TensorBoard:                    .\.venv\Scripts\tensorboard.exe --logdir <log_dir>\tensorboard
+The run directory is log_dir in configs\config_ft_az.yml (set by make_config.py --log_dir).
 #>
 param(
     [double]$MaxHours = 7.5,
@@ -29,9 +30,16 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $PSScriptRoot
 $Py = Join-Path $Root ".venv\Scripts\python.exe"
 $Config = Join-Path $Root "configs\config_ft_az.yml"
-$LogDir = Join-Path $Root "runs\az_ft"
 $Calibration = Join-Path $Root "configs\calibration.json"
 if (-not (Test-Path $Config)) { throw "Missing $Config - run scripts\make_config.py first." }
+# train_finetune.py writes checkpoints to the config's log_dir, so resume must look there too
+$logLine = Select-String -Path $Config -Pattern '^log_dir:\s*(.+)$' | Select-Object -First 1
+if (-not $logLine) { throw "No log_dir in $Config" }
+$LogDir = $logLine.Matches[0].Groups[1].Value.Trim().Trim("'").Trim('"')
+if ((-not $Resume) -and (Get-NewestCheckpoint -Dir $LogDir)) {
+    throw "$LogDir already holds checkpoints from another run; after a crash this run would auto-resume " + `
+          "from them. Use -Resume to continue that run, or rebuild the config with a new --log_dir."
+}
 $env:PHONEMIZER_ESPEAK_LIBRARY = "C:\Program Files\eSpeak NG\libespeak-ng.dll"
 $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
 $env:PYTHONIOENCODING = "utf-8"
@@ -118,4 +126,4 @@ while ($true) {
     }
 }
 
-Write-Host "Synthesize: .\.venv\Scripts\python.exe scripts\synthesize.py --checkpoint <runs\az_ft\epoch_2nd_XXXXX.pth>"
+Write-Host "Synthesize: .\.venv\Scripts\python.exe scripts\synthesize.py --checkpoint <$LogDir\epoch_2nd_XXXXX.pth>"
