@@ -55,6 +55,11 @@ def default_config(checkpoint):
     return STTS / "Models/LibriTTS/config.yml"
 
 
+def default_out_dir(checkpoint):
+    """<run dir>/samples/<checkpoint stem>: runs share checkpoint names, so keep samples per run."""
+    return Path(checkpoint).parent / "samples" / Path(checkpoint).stem
+
+
 def metadata_text(wav_name):
     """Original text of a dataset clip (data/wavs/000123.wav <- metadata.csv 000123.mp3)."""
     stem = Path(wav_name).stem
@@ -201,7 +206,7 @@ def main():
         refs = [ROOT / r for r in d["ref"]]  # inference.json paths are relative to the repo root
     else:
         refs = [ROOT / "data/wavs" / val_first[0]]
-    out_dir = (Path(a.out_dir).resolve() if a.out_dir else ROOT / "runs/az_ft/samples" / checkpoint.stem)
+    out_dir = Path(a.out_dir).resolve() if a.out_dir else default_out_dir(checkpoint)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     synth = Synth(config, checkpoint)

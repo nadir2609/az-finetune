@@ -75,3 +75,9 @@ def test_default_config_is_the_one_next_to_the_checkpoint(tmp_path):
     assert default_config(ckpt) == ckpt.parent / "config_ft_az.yml"
     lone = tmp_path / "elsewhere.pth"
     assert default_config(lone) != ckpt.parent / "config_ft_az.yml"
+
+
+def test_default_out_dir_is_inside_the_checkpoints_run(tmp_path):
+    from synthesize import default_out_dir
+    ckpt = tmp_path / "az_ft2" / "epoch_2nd_00005.pth"
+    assert default_out_dir(ckpt) == tmp_path / "az_ft2" / "samples" / "epoch_2nd_00005"
