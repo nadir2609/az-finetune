@@ -55,6 +55,12 @@ def default_config(checkpoint):
     return STTS / "Models/LibriTTS/config.yml"
 
 
+def tuned_for_other_run(defaults, checkpoint):
+    """True if configs/inference.json was tuned on a checkpoint from a different run directory."""
+    tuned = defaults.get("checkpoint")
+    return bool(tuned) and (ROOT / tuned).resolve().parent != Path(checkpoint).resolve().parent
+
+
 def default_out_dir(checkpoint):
     """<run dir>/samples/<checkpoint stem>: runs share checkpoint names, so keep samples per run."""
     return Path(checkpoint).parent / "samples" / Path(checkpoint).stem
@@ -105,6 +111,7 @@ class Synth:
             self.params = recursive_munch(config["model_params"])
             self.model = build_model(self.params, text_aligner, pitch_extractor, plbert)
             self.g2p = g2p_for_config(config)
+            print(f"[synthesize] config {config_path} (g2p: {self.g2p})")
         finally:
             os.chdir(cwd)
         state = torch.load(checkpoint, map_location="cpu")["net"]
@@ -209,6 +216,9 @@ def main():
     out_dir = Path(a.out_dir).resolve() if a.out_dir else default_out_dir(checkpoint)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    if tuned_for_other_run(d, checkpoint):
+        print(f"[synthesize] note: configs/inference.json was tuned on {d['checkpoint']}; "
+              f"re-run eval_tts.py --tune for this run's checkpoints")
     synth = Synth(config, checkpoint)
     texts = a.text or DEFAULT_TEXTS
     if a.text is None:  # add the val item for A/B against the real recording

@@ -138,7 +138,11 @@ def main():
             params, best_s = {**params, "speed": speed}, s
     best = (params, best_s)
 
-    out = {"checkpoint": str(checkpoint.relative_to(ROOT)), "ref_strategy": best_ref,
+    try:
+        ckpt_name = str(checkpoint.relative_to(ROOT))
+    except ValueError:  # checkpoint outside the repo
+        ckpt_name = str(checkpoint)
+    out = {"checkpoint": ckpt_name, "ref_strategy": best_ref,
            "ref": report[best_ref]["ref"], **best[0], "steps": 10,
            "metrics": best[1], "baseline": {k: report["single"][k] for k in ("dur_ratio", "f0_ratio", "score")}}
     path = ROOT / "configs/inference.json"

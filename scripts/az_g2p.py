@@ -132,11 +132,13 @@ def _stress_index(word, question):
 def load_lexicon(path=LEXICON):
     """word -> IPA overrides from a UTF-8 TSV (`word<TAB>ipa`, `#` comments)."""
     lex = {}
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
+    for n, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         line = line.strip()
         if line and not line.startswith("#"):
-            word, ipa = line.split("\t")
-            lex[word.strip()] = ipa.strip()
+            fields = line.split("\t")
+            if len(fields) != 2:
+                raise ValueError(f"{path} line {n}: expected 'word<TAB>ipa', got {line!r}")
+            lex[fields[0].strip()] = fields[1].strip()
     return lex
 
 

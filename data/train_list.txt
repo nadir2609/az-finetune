@@ -1030,7 +1030,7 @@
 001090.wav|ameɾikˈa birlæʃmˈiʃ ʃtatɫaɾˈɯ uzˈun illˈærdir jˈyz aɫtmˈɯʃ œlcˈæ haɡdˈa hesabˈat atʃɯɡɫajˈɯr .|0
 001091.wav|bˈir ɟˈyn badʒˈɯm ɡatʃaɡatʃˈa ɟælˈib mænˈæ xæbˈær verdˈi ci , anamˈɯz ɟælˈib .|0
 001092.wav|ijirmˈi bˈeʃ ildˈæn sonrˈa atasˈɯ ismˈæt ɡajɯbˈov haɡɡɯndˈa danɯʃmasɯnˈɯ xahˈiʃ etdˈiç .|0
-001093.wav|axʃˈam jˈemæjinæ tojˈux ɡɯzartmasˈɯ biʃiɾædʒæjˈiç , sˈæn dæ ɟˈæl .|0
+001093.wav|axʃˈam jemæjinˈæ tojˈux ɡɯzartmasˈɯ biʃiɾædʒæjˈiç , sˈæn dæ ɟˈæl .|0
 001094.wav|ɡæsæbænˈin tæhlycæsizlijinˈi tæmˈin etmˈæç mæxsædilˈæ , ɡæsæbˈæ ætrafɯndˈa mydafiˈæ postɫaɾˈɯ ɡuɾuɫmaɣˈa baʃɫanɯɫdˈɯ .|0
 001095.wav|andʒˈax sˈæn bizˈæ doːrˈu joɫˈu ɟœstæɾˈæ bilærsˈæn , elˈæ dejˈilmi ?|0
 001096.wav|ɟedʒælˈær havˈa sojˈux oɫˈur , ɡaɫˈɯn paɫtˈar ɟejinmˈæç ɫazˈɯmdɯr .|0
@@ -1305,7 +1305,7 @@
 001376.wav|atʃɯɡɫamadˈa ixtisadˈi isɫahˈat proɡramɯnˈɯn sæçsˈæn bˈeʃ faizˈin jeɾinˈæ jetiɾildijˈi bæjˈan edildˈi .|0
 001377.wav|demælˈi , eleçtrˈa ˈœz ɡardaʃɯnˈɯ ejnˈi zamandˈa hˈæm tanɯjˈɯr , hˈæm dæ tanɯmˈɯr .|0
 001378.wav|bˈu sajtdˈa beltʃikadˈa tæhsˈil ytʃˈyn ɡrˈant veɾˈæn ræsmˈi idaɾælæɾˈin sijahɯsˈɯ vˈardɯr .|0
-001379.wav|hæmˈin bˈæçmæz hipertonijˈa xæstælijinˈæ tutuɫmˈuʃ adˈam ytʃˈyn ˈæn jaxʃˈɯ myalidʒˈæ vasitæsidˈir .|0
+001379.wav|hæmˈin bæçmˈæz hipertonijˈa xæstælijinˈæ tutuɫmˈuʃ adˈam ytʃˈyn ˈæn jaxʃˈɯ myalidʒˈæ vasitæsidˈir .|0
 001380.wav|ɡɯzˈɯɫ cæpænˈæç mykafatɫaɾɯndˈa ˈæn jaxʃˈɯ ciʃˈi xæbˈær apaɾɯdʒɯsˈɯ mykafatɯnˈa ɫajˈix ɟœɾylˈyb .|0
 001381.wav|bˈu tiplˈi ɫajihælˈær , æsasˈæn , muzejlæɾˈin eçspozisijˈa zaɫɫaɾɯndˈa væ ɡaleɾejaɫaɾɯndˈa hæjatˈa cetʃiɾilˈir .|0
 001383.wav|amnistijˈa aktɯnˈɯn idʒrasˈɯ bitmæjænædˈæç bˈiz mæhbusɫaɾˈɯn ˈæfm baɾædˈæ myɾadʒiætinˈæ baxˈa bilmæɾˈiç .|0
@@ -1521,7 +1521,7 @@
 001608.wav|saːɫamɫɯɣˈɯ ilˈæ baːɫˈɯ illærlˈæ ˈyst ystˈæ jɯɣɯɫˈan problemlˈær œzynˈy byɾuzˈæ vermæjˈæ baʃɫajˈɯr .|0
 001610.wav|tuɾistlærlˈæ birliçdˈæ bajramdˈa hˈær ˈil aɫtˈɯ miljondˈan tʃˈox ʃˈæxs iʃtiɾˈak etmæçdædˈir .|0
 001611.wav|arsenˈaɫ bˈu tituɫˈu diɟˈær kɫubɫardˈan dahˈa tʃˈox ˈon ˈytʃ dæfˈæ ɡazanˈɯb .|0
-001612.wav|mˈæn hˈær sæhˈær tæzˈæ tʃœɾˈæç væ pˈendir jejiɾˈæm .|0
+001612.wav|mˈæn hˈær sæhˈær tæzˈæ tʃœɾˈæç væ pendˈir jejiɾˈæm .|0
 001613.wav|ammˈa jenˈæ dæ dejiɾˈæm ci , bˈu ɡæbiɾistanɫɯɣˈɯn haɾasˈa cœtʃyɾylmæsˈi inandɯɾɯdʒˈɯ sajˈɯɫmɯr .|0
 001614.wav|icˈi mˈin ˈon doɡɡuzundʒˈu ilˈin ævvællæɾindˈæn ˈo , jenidˈæn azærbajdʒanˈa ɟælmæjˈæ baʃɫajˈɯb .|0
 001615.wav|soɫdakˈɯ diaɡramdˈa eleçtronɫˈar aɾasɯndˈa ˈæn tʃˈox rastɫanˈan bˈir mynasibˈæt tæsvˈir edilmˈiʃdir .|0
@@ -1713,7 +1713,7 @@
 001813.wav|hazɯrdˈa ɡazaxɯstˈan ixtisadijjatˈɯ struktuɾunˈun demˈæç oɫˈar ci , ytʃdˈæ biɾinˈi sænajˈe tutˈur .|0
 001814.wav|dʒænazæsˈu ɡardaʃˈɯ næsiɾæddˈin ɡutɫuːʃahˈɯn saɫmˈas ˈæl farsˈi zijaɾætɟahɯndakˈɯ mæɡbæɾæsindˈæ basdɯɾɯɫɯmˈɯʃdɯr .|0
 001815.wav|ortˈa sahænˈin cyndʒlæɾindˈæ buɫˈud tæsviɾˈi ilˈæ bæzædilmˈiʃ sadˈæ formaɫˈɯ lætʃæçlˈær dyzylmˈyʃdyr .|0
-001816.wav|sabˈah sæhˈær jˈemæjinæ tæzˈæ tʃœɾˈæç væ pˈendir aɫˈax .|0
+001816.wav|sabˈah sæhˈær jemæjinˈæ tæzˈæ tʃœɾˈæç væ pendˈir aɫˈax .|0
 001817.wav|arɡˈun xˈan tæɾæfindˈæn dʒaɾijˈæ væ ceʃˈiç veɾilæɾˈæç xoɾasˈan valisˈi tæjˈin oɫundˈu .|0
 001818.wav|sizˈi ermænˈi iʃɣaɫtʃɯɫaɾɯnˈa ɡarʃˈɯ icindʒˈi ɡaɾabˈaː myhaɾibæsindˈæ ɡælæbˈæ mynasibætilˈæ tæbrˈiç edˈim .|0
 001819.wav|icˈi mˈin aɫtɯndʒˈɯ ildˈæ ɡɯrɣɯzɯstˈan prezidentˈi myɡavilæjˈæ æɫavˈæ ɟyzæʃtlˈær tælˈæb edˈir .|0
@@ -1730,7 +1730,7 @@
 001830.wav|onˈun ɫajihæsˈi æsasɯndˈa isˈæ diɟˈær ʃæhærlærdˈæ citʃˈiç mæbædlˈær inʃˈa edilmæjˈæ baʃɫamɯʃdˈɯ .|0
 001832.wav|xæstælijˈæ sæbˈæb oɫˈan mutasijaɫˈar xæstælæɾˈin jaɫnˈɯz tʃˈox ˈaz bˈir ɡismindˈæ tapɯɫˈɯr .|0
 001833.wav|millˈi mybaɾizænˈin pɫanɫaɾˈɯ konjadˈa hazɯrɫanmˈɯʃ , razɯɫaʃdɯɾɯɫmˈɯʃ væ aːʃæhærdˈæ tætbˈix edilmæjˈæ baʃɫanmˈɯʃdɯr .|0
-001834.wav|bˈakɯ xanɫɯɣɯndˈa mirzˈæ mæhˈæmmædin dœvryndˈæ ixtisadijjˈat væ tidʒaɾˈæt inciʃˈaf etmiʃdˈi .|0
+001834.wav|bˈakɯ xanɫɯɣɯndˈa mirzˈæ mæhæmmædˈin dœvryndˈæ ixtisadijjˈat væ tidʒaɾˈæt inciʃˈaf etmiʃdˈi .|0
 001835.wav|ˈaː evˈin ræsmˈi nymajændæsˈi dʒˈej karnˈi belˈæ bˈir bæjanatɫˈa tʃɯxˈɯʃ edˈib .|0
 001836.wav|hærbˈi xidmætˈi bitiɾændˈæn sonrˈa kaɫuɡˈa ʃæhæɾindˈæ ortˈa ixtisasɫˈɯ hyɡˈux mæçtæbinˈi bitiɾˈib .|0
 001837.wav|bˈu dœvrˈyn diɡɡˈæt tʃæcˈæn æsærlæɾindˈæn biɾˈi dæ istanbˈuɫ teçstˈil istehsaɫtʃɯɫaɾˈɯ bazaɾɯdˈɯr .|0
@@ -1993,7 +1993,7 @@
 002098.wav|dynˈæn axʃˈam ɟydʒlˈy ɡˈar jaːdˈɯ , joɫɫˈar bˈuz baːɫamɯʃdˈɯ .|0
 002099.wav|dahˈa sonrˈa maɾinˈa neçrasovˈa særbˈæst væ dajaɡɫˈa tuɫɫanmˈa turniɾindˈæ mybaɾizˈæ apardˈɯ .|0
 002101.wav|titræmˈæ sacitliçdˈæ dahˈa tʃˈox æmælˈæ ɟælˈir , hæɾæcˈæt zamanˈɯ azaɫˈɯr væ itˈir .|0
-002102.wav|icˈi jˈyz miljˈon ˈil œndʒˈæ dˈaʃ diɾæçlæɾˈin jeɾindˈæ hˈyndyr daːɫˈar vardˈɯ .|0
+002102.wav|icˈi jˈyz miljˈon ˈil œndʒˈæ dˈaʃ diɾæçlæɾˈin jeɾindˈæ hyndˈyr daːɫˈar vardˈɯ .|0
 002103.wav|belæliçlˈæ , mˈin doɡɡˈuz jˈyz ijirmˈi jeddˈi setʃcilæɾindˈæ bˈir partijˈa iʃtiɾˈak etdˈi .|0
 002104.wav|mˈin doɡɡˈuz jˈyz ijirmˈi ytʃyndʒˈy ildˈæ æmˈæç ɡæhræmanˈɯ adɯnˈa ɫajˈix ɟœɾylmˈyʃdyr .|0
 002105.wav|onˈun bˈu kɫubɫˈa icˈi mˈin ˈon jeddindʒˈi ilˈæ ɡædˈær myɡavilæsˈi vˈar .|0

@@ -162,3 +162,24 @@ def test_lexicon_file_uses_only_styletts_symbols():
     from az_text import unknown_symbols
     lex = load_lexicon()
     assert lex and all(not unknown_symbols(ipa) for ipa in lex.values())
+
+
+def test_malformed_lexicon_line_reports_line_number(tmp_path):
+    from az_g2p import load_lexicon
+    bad = tmp_path / "lex.tsv"
+    bad.write_text("# comment\nvə\tvæ\npendir penˈdir\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="line 3"):
+        load_lexicon(bad)
+
+
+@pytest.mark.parametrize("word, ipa", [
+    ("pendir", "pendˈir"), ("hündür", "hyndˈyr"), ("yeməyin", "jemæjˈin"), ("köməyiniz", "cœmæjinˈiz"),
+    ("məhəmmədin", "mæhæmmædˈin"), ("bəkməz", "bæçmˈæz"),
+])
+def test_lexicon_fixes_rule_false_positives(word, ipa):
+    assert word_to_ipa(word) == ipa
+
+
+@pytest.mark.parametrize("word", ["rəsmi", "elmi", "həcmi"])
+def test_lexicon_keeps_final_stress_on_mi_adjectives_in_questions(word):
+    assert word_to_ipa(word, question=True).endswith("ˈi")

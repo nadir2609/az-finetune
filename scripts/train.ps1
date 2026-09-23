@@ -37,8 +37,9 @@ $logLine = Select-String -Path $Config -Pattern '^log_dir:\s*(.+)$' | Select-Obj
 if (-not $logLine) { throw "No log_dir in $Config" }
 $LogDir = $logLine.Matches[0].Groups[1].Value.Trim().Trim("'").Trim('"')
 if ((-not $Resume) -and (Get-NewestCheckpoint -Dir $LogDir)) {
-    throw "$LogDir already holds checkpoints from another run; after a crash this run would auto-resume " + `
-          "from them. Use -Resume to continue that run, or rebuild the config with a new --log_dir."
+    throw "$LogDir already holds checkpoints; a fresh run there would auto-resume from them after a crash. " + `
+          "If this config was built for that same run, continue it with -Resume. For a new run, rebuild the " + `
+          "config with make_config.py --pretrained <start weights> --log_dir <new empty dir>."
 }
 $env:PHONEMIZER_ESPEAK_LIBRARY = "C:\Program Files\eSpeak NG\libespeak-ng.dll"
 $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"

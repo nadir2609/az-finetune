@@ -157,7 +157,11 @@ so the first run never trained with it. `make_config.py` now keeps ≥ 2 samples
   the default allocator, while `train.ps1` sets
   `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True`, which kept reserved ~0.2 GB
   lower in earlier measurements. **It fits, with ~0.45 GB of allocated headroom** —
-  close other GPU apps before launching (the precheck enforces this).
+  but in the SLM phase *reserved* memory touched the cap (6.572 of 6.573 GB), so an
+  OOM late in the run is possible. Auto-resume restarts from the last epoch's
+  checkpoint, but each SLM epoch is ~1.25 h of the 7.5 h cap. Close other GPU apps
+  before launching (the precheck enforces this); if an OOM happens, re-run
+  calibration, which will drop to a smaller SLM window.
 - WavLM is frozen; decoder uses gradient checkpointing; bf16 autocast except the
   HiFi-GAN decoder/vocoder and F0/STFT losses (fp32).
 
@@ -168,7 +172,9 @@ epoch 2 + style diffusion, epochs 3–6 + SLM adversarial — **projected ≈6.8
 written to `runs/az_ft2`. The launcher's **hard 7.5 h wall-clock cap** applies
 regardless of the projection.
 
-**Re-run calibration** (`smoke_test.py` then `make_config.py`) if VRAM
+**Re-run calibration** (`smoke_test.py --start 2/150`, then `make_config.py` with the
+full flags shown above — `--pretrained` and `--log_dir` are required, so a config can
+never silently start from the wrong weights or point at another run's directory) if VRAM
 availability on this machine changes — a driver update, a different GPU, or
 simply a different baseline of other GPU apps running. `free_gb_at_launch` in
 `calibration.json` is also what `train.ps1`'s launch-time precheck compares
@@ -336,8 +342,10 @@ same text and speaker, so it's the most direct fidelity check available.
   minus 0.2 GB slack). Close other GPU apps and retry, or pass `-Force` to
   proceed anyway at your own risk (more likely to OOM mid-run).
 - **`train.ps1` refuses to start ("already holds checkpoints")**: the config's
-  `log_dir` belongs to an earlier run. Use `-Resume` to continue it, or rebuild the
-  config with a fresh `make_config.py --log_dir`.
+  `log_dir` already has checkpoints. Use `-Resume` only if the config was built for
+  *that same run*; resuming another run's checkpoint (e.g. the espeak-trained
+  `runs\az_ft`) with the new labels would continue the wrong run. For a new run,
+  rebuild the config with `make_config.py --pretrained <start weights> --log_dir <new dir>`.
 - **A word is mispronounced**: add it to `configs/az_lexicon.tsv` (see
   *Pronunciation (G2P)*). Inference picks it up immediately; for training data it
   needs `prepare_data.py` and a new run.

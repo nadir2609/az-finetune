@@ -70,25 +70,33 @@ def config_from_calibration(cal, budget_h, pretrained, log_dir, diff_frac=0.2, j
     return c, s
 
 
-def main():
+def parse_args(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--budget_h", type=float, default=7.0)
     ap.add_argument("--calibration", default=str(ROOT / "configs/calibration.json"))
     ap.add_argument("--out", default=str(ROOT / "configs/config_ft_az.yml"))
-    ap.add_argument("--pretrained", default=None,
-                    help="checkpoint whose weights start the run (default: upstream LibriTTS)")
-    ap.add_argument("--log_dir", default=str(ROOT / "runs/az_ft"),
-                    help="must not hold older checkpoints: train.ps1 auto-resumes from the newest one there")
+    # Both required: with several runs on disk, a silent default could start from the wrong weights or
+    # point train.ps1 at another run's checkpoints.
+    ap.add_argument("--pretrained", required=True,
+                    help=r"weights that start the run, e.g. runs\az_ft\epoch_2nd_00010.pth or "
+                         r"StyleTTS2\Models\LibriTTS\epochs_2nd_00020.pth")
+    ap.add_argument("--log_dir", required=True,
+                    help="new, empty run directory (train.ps1 auto-resumes from the newest checkpoint there)")
     ap.add_argument("--diff_frac", type=float, default=0.2, help="style diffusion starts at this share of epochs")
     ap.add_argument("--joint_frac", type=float, default=0.6, help="SLM adversarial starts at this share of epochs")
-    args = ap.parse_args()
+    return ap.parse_args(argv)
+
+
+def main():
+    args = parse_args()
     cal = json.loads(Path(args.calibration).read_text(encoding="utf-8"))
-    c, s = config_from_calibration(cal, args.budget_h, args.pretrained and str(Path(args.pretrained).resolve()),
+    c, s = config_from_calibration(cal, args.budget_h, str(Path(args.pretrained).resolve()),
                                    Path(args.log_dir).resolve(), args.diff_frac, args.joint_frac)
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as f:
         yaml.safe_dump(c, f, allow_unicode=True, sort_keys=False)
-    print(json.dumps(s, indent=2), "\nwritten", args.out)
+    print(json.dumps({**s, "pretrained_model": c["pretrained_model"], "log_dir": c["log_dir"]}, indent=2),
+          "\nwritten", args.out)
 
 
 if __name__ == "__main__":

@@ -81,3 +81,11 @@ def test_default_out_dir_is_inside_the_checkpoints_run(tmp_path):
     from synthesize import default_out_dir
     ckpt = tmp_path / "az_ft2" / "epoch_2nd_00005.pth"
     assert default_out_dir(ckpt) == tmp_path / "az_ft2" / "samples" / "epoch_2nd_00005"
+
+
+def test_tuned_for_other_run_detects_mismatch(tmp_path):
+    from synthesize import ROOT, tuned_for_other_run
+    d = {"checkpoint": "runs/az_ft/epoch_2nd_00010.pth"}
+    assert tuned_for_other_run(d, ROOT / "runs/az_ft2/epoch_2nd_00005.pth")
+    assert not tuned_for_other_run(d, ROOT / "runs/az_ft/epoch_2nd_00004.pth")
+    assert not tuned_for_other_run({}, ROOT / "runs/az_ft2/epoch_2nd_00005.pth")

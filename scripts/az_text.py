@@ -20,6 +20,8 @@ _backend = None
 
 def normalize_text(text: str) -> str:
     text = unicodedata.normalize("NFC", text)
+    # Cyrillic/turned schwa look like ə in typed Azerbaijani; typographic punctuation -> the plain set
+    text = text.translate(str.maketrans({"Ә": "Ə", "ә": "ə", "Ǝ": "Ə", "ǝ": "ə", "…": ".", "—": ",", "–": ","}))
     text = text.replace("İ", "i").replace("I", "ı").lower()
     text = re.sub(r"[\"“”«»]", "", text)
     text = re.sub(r"\s+", " ", text).strip()

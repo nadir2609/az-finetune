@@ -67,3 +67,14 @@ def test_config_from_calibration_without_slm_keeps_upstream_window():
            "sec_per_step": {"a": 1.8, "diff": 1.85, "joint": None}, "n_train": 2310, "n_val": 122}
     c, s = config_from_calibration(cal, budget_h=7.0, pretrained="P.pth", log_dir="L")
     assert s["joint_epoch"] > s["epochs"] and c["slmadv_params"]["min_len"] == 400
+
+
+def test_cli_requires_explicit_start_checkpoint_and_run_dir():
+    import pytest
+    from make_config import parse_args
+    with pytest.raises(SystemExit):
+        parse_args([])
+    with pytest.raises(SystemExit):
+        parse_args(["--log_dir", "runs/x"])
+    a = parse_args(["--pretrained", "p.pth", "--log_dir", "runs/x"])
+    assert (a.pretrained, a.log_dir, a.diff_frac, a.joint_frac) == ("p.pth", "runs/x", 0.2, 0.6)

@@ -29,3 +29,8 @@ def test_phonemize_batch_order():
 
 def test_unknown_symbols_detects():
     assert unknown_symbols("abc☃") == {"☃"}
+
+
+def test_normalize_maps_cyrillic_schwa_and_typographic_punctuation():
+    assert normalize_text("Әli gəldi… Sonra — getdi") == "əli gəldi. sonra , getdi"
+    assert normalize_text("ǝlaqǝ") == "əlaqə"
