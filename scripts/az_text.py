@@ -3,6 +3,8 @@ import os
 import re
 import unicodedata
 
+from az_g2p import text_to_ipa
+
 os.environ.setdefault("PHONEMIZER_ESPEAK_LIBRARY", r"C:\Program Files\eSpeak NG\libespeak-ng.dll")
 
 # Mirrors StyleTTS2/text_utils.py (pinned commit) -- the 178-token vocabulary.
@@ -36,10 +38,15 @@ def _get_backend():
     return _backend
 
 
-def phonemize_texts(texts):
+def phonemize_texts(texts, g2p="rules"):
+    """g2p: "rules" (az_g2p, default) or "espeak" (legacy; what runs before the switch were trained on)."""
     norm = [normalize_text(t) for t in texts]
-    ipa = _get_backend().phonemize(norm, strip=True, njobs=1)
-    return [tokenize_ipa(p) for p in ipa]
+    if g2p == "rules":
+        return [text_to_ipa(t) for t in norm]
+    if g2p == "espeak":
+        ipa = _get_backend().phonemize(norm, strip=True, njobs=1)
+        return [tokenize_ipa(p) for p in ipa]
+    raise ValueError(f"unknown g2p {g2p!r} (expected 'rules' or 'espeak')")
 
 
 def unknown_symbols(ipa: str) -> set:
