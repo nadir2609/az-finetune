@@ -203,3 +203,50 @@ def test_shipped_config_matches_the_constructors():
     assert set(cfg["stt"]) == {"model", "device", "compute_type", "initial_prompt"}
     assert set(cfg["playback"]) == {"gap_ms", "tail_ms"}
     assert set(cfg["tts"]) == {"checkpoint"}
+
+
+def test_reply_with_nothing_speakable_plays_the_fallback_phrase():
+    p, tts, player, logs, _ = make(FakeLLM("😀👍"))
+    p.step()
+    assert tts.texts == [] and player.speech() == [99]
+    assert any("[fallback]" in line for line in logs)
+
+
+def test_fallback_plays_when_every_chunk_fails_in_tts():
+    p, _, player, _, _ = make(FakeLLM("İkinci."), tts=FakeTTS(fail_on="ikinci."))
+    p.step()
+    assert player.speech() == [99]
+
+
+def test_llm_failure_after_an_unspeakable_chunk_still_plays_the_fallback():
+    p, _, player, _, _ = make(FakeLLM("😀. ", LLMError("503")))
+    p.step()
+    assert player.speech() == [99]
+
+
+class SlowPlayer(FakePlayer):
+    def play(self, wav):
+        import time
+        time.sleep(0.2)
+        super().play(wav)
+
+
+def test_interrupt_during_a_reply_stops_speaking_instead_of_finishing_the_queue():
+    ref, logs = [], []
+    player = SlowPlayer(ref)
+    p = Pipeline(FakeLLM("Bir. İki. Üç. Dörd. Beş. ", KeyboardInterrupt()), FakeTTS(), player,
+                 chunker={"min_chars": 1, "max_chars": 180}, fallback_wav=FALLBACK, log=logs.append)
+    ref.append(p)
+    with pytest.raises(KeyboardInterrupt):
+        p.reply("Salam")
+    assert len(player.speech()) <= 2  # the chunk being played may finish; the queued ones must not start
+
+
+def test_long_audio_is_played_in_slices_so_an_interrupt_takes_effect_quickly():
+    class LongTTS(FakeTTS):
+        def synthesize(self, text):
+            return np.ones(15000, dtype=np.float32)
+
+    p, _, player, _, _ = make(FakeLLM("Bəli."), tts=LongTTS())
+    p.step()
+    assert [len(w) for w in player.played] == [6000, 6000, 3000]  # 0.25 s at 24 kHz

@@ -75,3 +75,13 @@ def test_output_never_breaks_the_g2p(text):
     from az_g2p import text_to_ipa
     from az_text import normalize_text
     text_to_ipa(normalize_text(to_spoken(text)))  # must not raise
+
+
+@pytest.mark.parametrize("text, spoken", [
+    ("-5 dərəcə", "mənfi beş dərəcə"),
+    ("Hava −5 dərəcədir.", "hava mənfi beş dərəcədir."),
+    ("-3 ilə +4", "mənfi üç ilə dörd"),
+    ("10-15 dəqiqə", "on on beş dəqiqə"),  # a range, not a negative number
+])
+def test_minus_sign_before_a_number_is_spoken(text, spoken):
+    assert to_spoken(text) == spoken

@@ -93,3 +93,17 @@ def test_reply_without_any_text_is_an_error_and_leaves_history_unchanged():
     with pytest.raises(LLMError):
         list(llm.stream_reply("a"))
     assert llm.history == []
+
+
+def test_whitespace_only_reply_is_an_error_and_leaves_history_unchanged():
+    llm = make(FakeClient([" ", "  "]))
+    with pytest.raises(LLMError):
+        list(llm.stream_reply("a"))
+    assert llm.history == []
+
+
+def test_default_client_has_a_network_timeout(monkeypatch):
+    made = []
+    monkeypatch.setattr("google.genai.Client", lambda **kw: made.append(kw) or FakeClient())
+    GeminiLLM("gemini-test", "Sistem.")
+    assert made == [{"http_options": {"timeout": 20000}}]  # milliseconds; without it a stalled call never returns

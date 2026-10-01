@@ -61,6 +61,7 @@ def _ordinal(words):
 
 
 def _numbers(text):
+    text = re.sub(r"(?<![\w.,:])[-−](?=\d)", " mənfi ", text)  # "-5", not the range "10-15"
     for symbol, word in _UNITS:
         text = re.sub(rf"({_NUM})\s*(?:{symbol}){_SUFFIX}", rf"\1 {word}", text, flags=re.I)
         text = re.sub(rf"(?:{symbol})\s*({_NUM})", rf"\1 {word}", text, flags=re.I)

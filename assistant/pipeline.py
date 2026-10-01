@@ -15,6 +15,7 @@ from assistant.text_norm import to_spoken
 FALLBACK_TEXT = "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa, bir az sonra yenidən cəhd edin."
 SECTIONS = ("tts", "stt", "llm", "vad", "chunker", "playback")
 _TIMINGS = ("stt", "llm_first_chunk", "tts_first", "first_audio")
+_SLICE = OUT_RATE // 4  # samples per write to the sound card
 _END = object()
 
 
@@ -94,40 +95,62 @@ class Pipeline:
         marks = {} if marks is None else marks
         self.state = "THINKING"
         self.log(f"Siz: {user_text}")
-        text_q, audio_q = queue.Queue(), queue.Queue()
-        workers = [threading.Thread(target=self._tts_worker, args=(text_q, audio_q, marks, t0), daemon=True),
-                   threading.Thread(target=self._play_worker, args=(audio_q, marks, t0), daemon=True)]
+        text_q, audio_q, stop, played = queue.Queue(), queue.Queue(), threading.Event(), []
+        workers = [threading.Thread(target=self._tts_worker, args=(text_q, audio_q, stop, marks, t0), daemon=True),
+                   threading.Thread(target=self._play_worker, args=(audio_q, stop, played, marks, t0),
+                                    daemon=True)]
         for w in workers:
             w.start()
-        chunker, said, queued = SentenceChunker(**self.chunker_cfg), [], 0
+        chunker, said = SentenceChunker(**self.chunker_cfg), []
         try:
-            for delta in self.llm.stream_reply(user_text):
-                said.append(delta)
-                for chunk in chunker.feed(delta):
+            try:
+                for delta in self.llm.stream_reply(user_text):
+                    said.append(delta)
+                    for chunk in chunker.feed(delta):
+                        marks.setdefault("llm_first_chunk", _ms(t0))
+                        text_q.put(chunk)
+                for chunk in chunker.flush():
                     marks.setdefault("llm_first_chunk", _ms(t0))
                     text_q.put(chunk)
-                    queued += 1
-            for chunk in chunker.flush():
-                marks.setdefault("llm_first_chunk", _ms(t0))
-                text_q.put(chunk)
-                queued += 1
-        except LLMError as e:  # chunks already queued are still spoken
-            self.log(f"[llm] {type(e).__name__}: {e}")
-            if not queued and self.fallback_wav is not None:
-                text_q.put(self.fallback_wav)
-        finally:
+            except LLMError as e:  # chunks already queued are still spoken
+                self.log(f"[llm] {type(e).__name__}: {e}")
             text_q.put(_END)
-            for w in workers:
-                w.join()
+            self._join(workers)
+            if not played and self.fallback_wav is not None:  # never answer with silence
+                self.log("[fallback] nothing could be spoken for this reply")
+                self._play(self.fallback_wav, stop)
+        except BaseException:  # Ctrl+C: stop speaking now instead of finishing the queue
+            stop.set()
+            text_q.put(_END)
+            self._join(workers)
+            raise
         text = "".join(said).strip()
         self.log(f"Köməkçi: {text}")
         self.log("[latency] " + " ".join(f"{k}={marks[k]}ms" for k in _TIMINGS if k in marks))
         return text
 
-    def _tts_worker(self, text_q, audio_q, marks, t0):
+    @staticmethod
+    def _join(workers):
+        for w in workers:
+            while w.is_alive():
+                w.join(0.1)  # a bare join() would hold back Ctrl+C until the worker ends
+
+    def _play(self, wav, stop):
+        """Play in 0.25 s slices so a stop request takes effect mid-sentence."""
+        try:
+            self.state = "SPEAKING"
+            for i in range(0, len(wav), _SLICE):
+                if stop.is_set():
+                    return False
+                self.player.play(wav[i:i + _SLICE])
+            return True
+        except Exception as e:
+            self.log(f"[audio] {type(e).__name__}: {e}")
+            return False
+
+    def _tts_worker(self, text_q, audio_q, stop, marks, t0):
         while (item := text_q.get()) is not _END:
-            if isinstance(item, np.ndarray):  # pre-synthesized audio (the fallback phrase)
-                audio_q.put(item)
+            if stop.is_set():
                 continue
             try:
                 spoken = to_spoken(item)
@@ -139,16 +162,13 @@ class Pipeline:
                 self.log(f"[tts] skipped {item!r}: {type(e).__name__}: {e}")
         audio_q.put(_END)
 
-    def _play_worker(self, audio_q, marks, t0):
+    def _play_worker(self, audio_q, stop, played, marks, t0):
         first = True
         while (wav := audio_q.get()) is not _END:
-            try:
-                if first:
-                    marks["first_audio"] = _ms(t0)
-                    self.state = "SPEAKING"
-                else:
-                    self.player.play(self.gap)
-                first = False
-                self.player.play(wav)
-            except Exception as e:
-                self.log(f"[audio] {type(e).__name__}: {e}")
+            if first:
+                marks["first_audio"] = _ms(t0)
+            else:
+                self._play(self.gap, stop)
+            first = False
+            if self._play(wav, stop):
+                played.append(1)

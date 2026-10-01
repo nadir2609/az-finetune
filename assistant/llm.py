@@ -9,11 +9,15 @@ class LLMRateLimited(LLMError):
     pass
 
 
+TIMEOUT_MS = 20000
+
+
 class GeminiLLM:
     def __init__(self, model, system_prompt, max_turns=10, max_output_tokens=300, thinking_budget=0, client=None):
         if client is None:
             from google import genai
-            client = genai.Client()  # reads GEMINI_API_KEY
+            # reads GEMINI_API_KEY; the SDK's default is no timeout, and a stalled call would hang the turn
+            client = genai.Client(http_options={"timeout": TIMEOUT_MS})
         self.client, self.model, self.max_turns = client, model, max_turns
         self.config = {"system_instruction": system_prompt, "max_output_tokens": max_output_tokens}
         if thinking_budget is not None:  # null in the config: for models that reject the setting
@@ -22,7 +26,7 @@ class GeminiLLM:
 
     def stream_reply(self, user_text):
         """Yield the reply's text deltas. Raises LLMError (LLMRateLimited on HTTP 429); a reply with
-        no text at all is an LLMError too, and leaves the history as it was."""
+        no text (or only whitespace) is an LLMError too, and leaves the history as it was."""
         self.history.append(("user", user_text))
         said = []
         try:
@@ -32,7 +36,7 @@ class GeminiLLM:
                 if chunk.text:  # None for chunks without text parts
                     said.append(chunk.text)
                     yield chunk.text
-            if not said:
+            if not "".join(said).strip():
                 raise LLMError("empty reply")
         except LLMError:
             raise
@@ -40,7 +44,7 @@ class GeminiLLM:
             kind = LLMRateLimited if getattr(e, "code", None) == 429 else LLMError
             raise kind(str(e)) from e
         finally:
-            if said:
+            if "".join(said).strip():
                 self.history.append(("model", "".join(said)))
                 self.history = self.history[-2 * self.max_turns:]
             else:

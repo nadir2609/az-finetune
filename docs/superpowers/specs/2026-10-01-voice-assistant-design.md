@@ -321,11 +321,12 @@ the same time.
 |---|---|
 | `GEMINI_API_KEY` not set | `talk.py` exits at startup with a message naming the variable. |
 | Empty or noise-only transcript | Back to `LISTENING`; no LLM call. |
-| `LLMError` before any complete chunk was produced | Play a fallback phrase synthesized at startup: "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa, bir az sonra yenidən cəhd edin." The error is logged; a rate limit is logged as such. |
+| Nothing was spoken for a reply (`LLMError` before any complete chunk, an empty or unspeakable reply, every chunk failing in TTS) | Play a fallback phrase synthesized at startup: "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa, bir az sonra yenidən cəhd edin." The error is logged; a rate limit is logged as such. |
 | `LLMError` mid-stream | Speak the chunks already produced, then return to `LISTENING`. |
 | TTS raises on a chunk | Log the chunk and the error, skip it, continue with the next. |
 | Whisper cannot use the GPU | Fall back to CPU `int8` with a logged warning. |
-| Ctrl+C | Stop the workers, close the audio streams, exit cleanly. |
+| Ctrl+C | Stop the workers (queued chunks are dropped; playback stops within 0.25 s), close the audio streams, exit cleanly. |
+| Gemini does not answer | The client has a 20 s network timeout; the timeout is an `LLMError`. |
 
 ## Testing
 
