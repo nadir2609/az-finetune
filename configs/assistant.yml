@@ -1,0 +1,30 @@
+# Voice assistant settings (scripts/talk.py). The Gemini key is read from the GEMINI_API_KEY environment variable.
+tts:
+  checkpoint: null            # null = the checkpoint named in configs/inference.json
+stt:
+  model: large-v3-turbo
+  device: cuda                # cpu also works (compute_type int8), about 1-2 s slower per turn
+  compute_type: float16
+  initial_prompt: "Salam, necəsiniz? Bu gün sizə necə kömək edə bilərəm?"
+llm:
+  model: gemini-2.5-flash
+  max_turns: 10               # exchanges kept as conversation history
+  max_output_tokens: 300
+  thinking_budget: 0          # 0 = no thinking (fastest); null = do not send the setting
+  system_prompt: |
+    Sən Azərbaycan dilində danışan səsli köməkçisən. Yalnız Azərbaycan dilində,
+    bir-üç qısa cümlə ilə, danışıq üslubunda cavab ver. Siyahı, markdown, emoji
+    və ixtisarlardan istifadə etmə. Rəqəmləri sözlə yaz.
+vad:
+  start_threshold: 0.5
+  end_threshold: 0.35
+  end_silence_ms: 600
+  min_speech_ms: 250
+  preroll_ms: 300
+  max_utterance_s: 30
+chunker:
+  min_chars: 25
+  max_chars: 180
+playback:
+  gap_ms: 150
+  tail_ms: 300
