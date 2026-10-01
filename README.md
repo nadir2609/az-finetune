@@ -42,6 +42,7 @@ pretraining of this one on phonemized Azerbaijani text).
 | `scripts/train.ps1` | **The script you run to start/resume training.** |
 | `scripts/monitor.py` | Live progress view of the current run's `train.log` (`log_dir` in the config). |
 | `scripts/synthesize.py` | Generate WAVs from a checkpoint for listening/evaluation. |
+| `assistant/`, `scripts/talk.py`, `configs/assistant.yml` | Voice assistant: microphone → Whisper → Gemini → this model's voice (see *Voice assistant*). |
 | `scripts/eval_tts.py`, `configs/inference.json` | Duration / pitch-range comparison against the real recordings; `--tune` writes the inference defaults. |
 | `patches/styletts2.patch` | Everything changed vs. upstream StyleTTS2 (applied automatically by `setup_env.ps1`). |
 | `StyleTTS2/` | Upstream clone (gitignored, rebuilt by `setup_env.ps1`). |
@@ -310,6 +311,56 @@ run's final checkpoint** before relying on these defaults for it.
 
 Compare a fine-tuned checkpoint's `04.wav` directly against its `gt_*.wav` —
 same text and speaker, so it's the most direct fidelity check available.
+
+## Voice assistant
+
+Speak Azerbaijani into the microphone, get a spoken answer in this model's voice:
+microphone → Silero VAD → faster-whisper (`large-v3-turbo`) → Gemini → StyleTTS2 → speakers.
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements-assistant.txt   # once
+$env:GEMINI_API_KEY = '<your key>'                                        # https://aistudio.google.com/apikey
+.\.venv\Scripts\python.exe scripts\talk.py            # speak; Ctrl+C to quit
+.\.venv\Scripts\python.exe scripts\talk.py --text     # type instead of speaking (no microphone or STT)
+.\.venv\Scripts\python.exe scripts\talk.py --list-devices
+```
+
+Startup takes about 30 s (TTS and Whisper models; the first run also downloads Whisper,
+about 1.6 GB). The voice, checkpoint and style settings are the ones in
+`configs/inference.json`; everything else is in `configs/assistant.yml`.
+
+How it behaves:
+
+- **Half-duplex.** The microphone is ignored while the assistant speaks; you cannot
+  interrupt a reply. Use speakers or headphones.
+- **Sentence streaming.** The reply is cut into sentences as Gemini streams it, and each
+  one is synthesized (about 0.4 s) and played while the next is still arriving. Each turn
+  prints a `[latency]` line: `stt`, `llm_first_chunk`, `tts_first`, `first_audio`, in ms
+  from the moment the end of speech was detected (0.6 s after you stop talking).
+- **Text normalization.** `assistant/text_norm.py` rewrites what the G2P cannot read:
+  `150` → "yüz əlli", `18:30` → "on səkkiz otuz", `50%` → "əlli faiz", `5-ci` → "beşinci",
+  markdown and emoji are dropped. A mispronounced word is fixed in `configs/az_lexicon.tsv`.
+
+Settings worth knowing in `configs/assistant.yml`:
+
+| Key | Effect |
+|---|---|
+| `llm.model` | Gemini model name; change it if the free-plan lineup changes. |
+| `llm.system_prompt` | The assistant's persona and answer style. |
+| `llm.thinking_budget` | `0` disables thinking (fastest); `null` for models that reject the setting. |
+| `vad.end_silence_ms` | Silence that ends your turn. Lower is snappier but cuts you off at pauses. |
+| `vad.start_threshold` | Raise it if background noise starts turns by itself. |
+| `stt.device` / `stt.compute_type` | `cpu` / `int8` if GPU Whisper does not work (about 1–2 s slower). |
+
+Limitations: Whisper's Azerbaijani is weaker than its major languages and sometimes drifts
+into Turkish, so recognition is the usual cause of an odd answer (check the `Siz:` line).
+The Gemini free plan has per-minute and per-day request limits (the assistant then says it
+cannot answer right now), and Google may use free-plan prompts to improve its models, so
+do not say anything sensitive. Do not run the assistant during a training run: both need
+the GPU.
+
+If a sound device refuses to open, pick another one from `--list-devices` with
+`--input-device N` / `--output-device N`.
 
 ## Troubleshooting
 
