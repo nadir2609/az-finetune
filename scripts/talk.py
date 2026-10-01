@@ -12,8 +12,20 @@ from assistant.llm import GeminiLLM  # noqa: E402
 from assistant.pipeline import FALLBACK_TEXT, Pipeline, load_config  # noqa: E402
 from assistant.text_norm import to_spoken  # noqa: E402
 
-NO_KEY = ("GEMINI_API_KEY is not set. Create a key at https://aistudio.google.com/apikey, then run:\n"
-          "    $env:GEMINI_API_KEY = '<your key>'")
+ENV_FILE = ROOT / ".env"  # gitignored; holds GEMINI_API_KEY=<key>
+NO_KEY = ("GEMINI_API_KEY is not set. Create a key at https://aistudio.google.com/apikey, then put this line\n"
+          f"in {ENV_FILE}:\n"
+          "    GEMINI_API_KEY=<your key>")
+
+
+def load_env_file(path, environ=os.environ):
+    """Set NAME=value lines from a .env file; variables already set in the shell win."""
+    if not Path(path).exists():
+        return
+    for line in Path(path).read_text(encoding="utf-8-sig").splitlines():
+        name, sep, value = line.strip().removeprefix("export ").partition("=")
+        if sep and name.strip() and not name.startswith("#"):
+            environ.setdefault(name.strip(), value.strip().strip("'\""))
 
 
 def stdin_lines():
@@ -37,6 +49,7 @@ def main(argv=None):
         list_devices()
         return
     cfg = load_config(a.config)
+    load_env_file(ENV_FILE)
     if not (os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")):
         sys.exit(NO_KEY)
 

@@ -1,4 +1,4 @@
-# Voice assistant settings (scripts/talk.py). The Gemini key is read from the GEMINI_API_KEY environment variable.
+# Voice assistant settings (scripts/talk.py). The Gemini key is read from GEMINI_API_KEY (.env in the repo root, or the shell).
 tts:
   checkpoint: null            # null = the checkpoint named in configs/inference.json
 stt:

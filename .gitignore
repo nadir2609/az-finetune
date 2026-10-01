@@ -9,3 +9,6 @@ StyleTTS2/
 __pycache__/
 .pytest_cache/
 *.egg-info/
+
+# secrets (GEMINI_API_KEY for scripts/talk.py)
+.env

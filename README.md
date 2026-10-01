@@ -319,7 +319,7 @@ microphone → Silero VAD → faster-whisper (`large-v3-turbo`) → Gemini → S
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-assistant.txt   # once
-$env:GEMINI_API_KEY = '<your key>'                                        # https://aistudio.google.com/apikey
+# put GEMINI_API_KEY=<your key> in a .env file in the repo root (gitignored); key: https://aistudio.google.com/apikey
 .\.venv\Scripts\python.exe scripts\talk.py            # speak; Ctrl+C to quit
 .\.venv\Scripts\python.exe scripts\talk.py --text     # type instead of speaking (no microphone or STT)
 .\.venv\Scripts\python.exe scripts\talk.py --list-devices
