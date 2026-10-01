@@ -133,8 +133,9 @@ compute_type="int8"`.
 
 ### `llm.py`
 
-`GeminiLLM(model, system_prompt, max_turns=10, max_output_tokens=300)` uses the
-`google-genai` SDK. The key is read from the `GEMINI_API_KEY` environment
+`GeminiLLM(model, system_prompt, max_turns=10, max_output_tokens=300,
+thinking_budget=0)` uses the `google-genai` SDK. `thinking_budget: null` in the
+config omits the setting, for models that reject it. The key is read from the `GEMINI_API_KEY` environment
 variable; it is never stored in a config file.
 
 `stream_reply(user_text) -> Iterator[str]` yields text deltas from
@@ -147,8 +148,10 @@ The class owns the history as a list of user and model turns:
 - The user turn is appended before the call; the model turn (the text actually
   yielded) is appended when the stream ends.
 - History is trimmed to the last `max_turns` exchanges.
-- If the call fails, the user turn is removed again and `LLMError` is raised.
-  A 429 raises `LLMRateLimited(LLMError)`.
+- If the call fails before any text arrived, the user turn is removed again; if
+  it fails mid-stream, the user turn and the partial reply are kept. Either way
+  `LLMError` is raised; a 429 raises `LLMRateLimited(LLMError)`.
+- A reply with no text at all (safety block, token limit) is an `LLMError` too.
 
 The default system prompt (in `configs/assistant.yml`, in Azerbaijani) tells the
 model to answer only in Azerbaijani, in one to three short spoken sentences,
@@ -233,8 +236,9 @@ One turn:
    it returns an utterance.
 2. `THINKING`: `stt.transcribe`. If the text is empty, go back to `LISTENING`
    without calling the LLM. Otherwise print the transcript.
-3. Three workers run for the reply:
-   - LLM thread: `llm.stream_reply` → `chunker.feed` → `text_q`; on end,
+3. Three stages run concurrently for the reply (the LLM stream on the
+   pipeline's own thread, the other two on worker threads):
+   - LLM: `llm.stream_reply` → `chunker.feed` → `text_q`; on end,
      `chunker.flush` and a sentinel.
    - TTS thread: `text_q` → `to_spoken` → `tts.synthesize` → `audio_q`.
    - Playback thread: `audio_q` → `player.play`, with 150 ms of silence between
@@ -274,6 +278,7 @@ llm:
   model: gemini-2.5-flash
   max_turns: 10
   max_output_tokens: 300
+  thinking_budget: 0          # 0 = no thinking (fastest); null = do not send the setting
   system_prompt: |
     Sən Azərbaycan dilində danışan səsli köməkçisən. Yalnız Azərbaycan dilində,
     bir-üç qısa cümlə ilə, danışıq üslubunda cavab ver. Siyahı, markdown, emoji
@@ -316,7 +321,7 @@ the same time.
 |---|---|
 | `GEMINI_API_KEY` not set | `talk.py` exits at startup with a message naming the variable. |
 | Empty or noise-only transcript | Back to `LISTENING`; no LLM call. |
-| `LLMError` before any text was produced | Play a fallback phrase synthesized at startup: "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa, bir az sonra yenidən cəhd edin." The error is logged; a rate limit is logged as such. |
+| `LLMError` before any complete chunk was produced | Play a fallback phrase synthesized at startup: "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa, bir az sonra yenidən cəhd edin." The error is logged; a rate limit is logged as such. |
 | `LLMError` mid-stream | Speak the chunks already produced, then return to `LISTENING`. |
 | TTS raises on a chunk | Log the chunk and the error, skip it, continue with the next. |
 | Whisper cannot use the GPU | Fall back to CPU `int8` with a logged warning. |
