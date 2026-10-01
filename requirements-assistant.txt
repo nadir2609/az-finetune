@@ -1,0 +1,4 @@
+faster-whisper
+silero-vad
+sounddevice
+google-genai<3
