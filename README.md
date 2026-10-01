@@ -347,6 +347,7 @@ Settings worth knowing in `configs/assistant.yml`:
 |---|---|
 | `llm.model` | Gemini model name; change it if the free-plan lineup changes. |
 | `llm.system_prompt` | The assistant's persona and answer style. |
+| `tts.short_chars` | Chunks shorter than this (default 40 characters) take their style fully from the reference clips. Under about 2 s of speech the text-predicted style drifts to a different-sounding voice; `0` turns the rule off. |
 | `llm.thinking_budget` | `0` disables thinking (fastest); `null` for models that reject the setting. |
 | `vad.end_silence_ms` | Silence that ends your turn. Lower is snappier but cuts you off at pauses. |
 | `vad.start_threshold` | Raise it if background noise starts turns by itself. |

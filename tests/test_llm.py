@@ -48,6 +48,7 @@ def test_request_carries_model_system_prompt_history_and_thinking_budget():
                                 {"role": "model", "parts": [{"text": "Bir."}]},
                                 {"role": "user", "parts": [{"text": "b"}]}]
     assert call["config"] == {"system_instruction": "Sistem.", "max_output_tokens": 50,
+                              "automatic_function_calling": {"disable": True},
                               "thinking_config": {"thinking_budget": 0}}
 
 
@@ -65,7 +66,7 @@ def test_history_is_trimmed_to_max_turns():
 
 
 def test_failure_before_any_text_rolls_the_user_turn_back():
-    llm = make(FakeClient([ApiError(500)], ["Bəli."]))
+    llm = make(FakeClient([ApiError(400)], ["Bəli."]))
     with pytest.raises(LLMError):
         list(llm.stream_reply("a"))
     assert llm.history == []
@@ -107,3 +108,27 @@ def test_default_client_has_a_network_timeout(monkeypatch):
     monkeypatch.setattr("google.genai.Client", lambda **kw: made.append(kw) or FakeClient())
     GeminiLLM("gemini-test", "Sistem.")
     assert made == [{"http_options": {"timeout": 20000}}]  # milliseconds; without it a stalled call never returns
+
+
+def test_a_503_before_any_text_is_retried_once():
+    client, sleeps = FakeClient([ApiError(503)], ["Bəli."]), []
+    llm = make(client, sleep=sleeps.append)
+    assert list(llm.stream_reply("a")) == ["Bəli."]
+    assert llm.history == [("user", "a"), ("model", "Bəli.")]
+    assert len(client.calls) == 2 and sleeps == [1.0]
+
+
+def test_a_second_503_gives_up():
+    client = FakeClient([ApiError(503)], [ApiError(503)], ["Bəli."])
+    llm = make(client, sleep=lambda s: None)
+    with pytest.raises(LLMError):
+        list(llm.stream_reply("a"))
+    assert llm.history == [] and len(client.calls) == 2
+
+
+def test_a_503_after_some_text_is_not_retried():
+    client = FakeClient(["Birinci. ", ApiError(503)], ["Bəli."])
+    llm = make(client, sleep=lambda s: None)
+    with pytest.raises(LLMError):
+        list(llm.stream_reply("a"))
+    assert len(client.calls) == 1

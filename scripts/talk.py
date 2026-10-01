@@ -55,7 +55,7 @@ def main(argv=None):
 
     from assistant.tts import TTSService  # torch and StyleTTS2: only after the cheap checks passed
     print("[talk] loading the TTS model ...")
-    tts = TTSService(cfg["tts"]["checkpoint"])
+    tts = TTSService(**cfg["tts"])
     fallback = tts.synthesize(to_spoken(FALLBACK_TEXT))
     llm = GeminiLLM(**cfg["llm"])
     mic = segmenter = stt = None

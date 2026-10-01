@@ -202,7 +202,7 @@ def test_shipped_config_matches_the_constructors():
     assert set(cfg["llm"]) == {"model", "system_prompt", "max_turns", "max_output_tokens", "thinking_budget"}
     assert set(cfg["stt"]) == {"model", "device", "compute_type", "initial_prompt"}
     assert set(cfg["playback"]) == {"gap_ms", "tail_ms"}
-    assert set(cfg["tts"]) == {"checkpoint"}
+    assert set(cfg["tts"]) == {"checkpoint", "short_chars"}
 
 
 def test_reply_with_nothing_speakable_plays_the_fallback_phrase():

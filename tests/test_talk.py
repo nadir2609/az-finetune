@@ -80,7 +80,7 @@ def test_key_from_the_env_file_passes_the_key_check(monkeypatch):
     class Reached(Exception):
         pass
 
-    def fake_tts(checkpoint):
+    def fake_tts(**kwargs):
         raise Reached
 
     monkeypatch.setitem(sys.modules, "assistant.tts", types.SimpleNamespace(TTSService=fake_tts))

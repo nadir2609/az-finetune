@@ -1,6 +1,8 @@
 # Voice assistant settings (scripts/talk.py). The Gemini key is read from GEMINI_API_KEY (.env in the repo root, or the shell).
 tts:
   checkpoint: null            # null = the checkpoint named in configs/inference.json
+  short_chars: 40             # chunks shorter than this take their style fully from the reference clips
+                              # (keeps the voice stable on short replies); 0 = always use the tuned alpha/beta
 stt:
   model: large-v3-turbo
   device: cuda                # cpu also works (compute_type int8), about 1-2 s slower per turn
