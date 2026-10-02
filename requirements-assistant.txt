@@ -4,3 +4,4 @@ sounddevice
 google-genai<3
 fastapi
 uvicorn[standard]
+httpx2
