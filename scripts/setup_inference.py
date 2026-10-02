@@ -2,10 +2,11 @@
 
 Run it with the Python of a fresh virtual environment (3.10):
     python scripts/setup_inference.py
-Installs torch (CPU build unless torch is already installed) and the requirements, clones StyleTTS2 at the
+Installs torch (the CPU build, or the CUDA 12.8 build with --gpu) and the requirements, clones StyleTTS2 at the
 pinned commit and applies patches/styletts2.patch. Safe to re-run.
 """
-import importlib.util
+import argparse
+import importlib.metadata
 import json
 import subprocess
 import sys
@@ -15,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 STTS = ROOT / "StyleTTS2"
 STTS_COMMIT = "5cedc71c333f8d8b8551ca59378bdcc7af4c9529"  # same pin as setup_env.ps1
 MIN_WEIGHTS_BYTES = 2**20
+CPU_INDEX = "https://download.pytorch.org/whl/cpu"
+GPU_INDEX = "https://download.pytorch.org/whl/cu128"  # same build as setup_env.ps1
 
 
 def run(*cmd, cwd=ROOT):
@@ -27,12 +30,39 @@ def is_lfs_pointer(path):
     return Path(path).stat().st_size < MIN_WEIGHTS_BYTES
 
 
-def main():
+def torch_plan(installed, gpu, platform):
+    """(uninstall_first, index_url) to get the wanted torch build, or None if it is already installed.
+    `installed` is the installed torch version, or None."""
+    if gpu:
+        if installed and "+cu" in installed:
+            return None
+        return installed is not None, GPU_INDEX
+    if installed:
+        return None
+    return False, None if platform == "darwin" else CPU_INDEX
+
+
+def installed_torch():
+    try:
+        return importlib.metadata.version("torch")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--gpu", action="store_true",
+                    help="install the CUDA 12.8 build of PyTorch (NVIDIA GPU), replacing a CPU build")
+    a = ap.parse_args(argv)
+
     pip = (sys.executable, "-m", "pip", "install")
     run(*pip, "--upgrade", "pip")
-    if importlib.util.find_spec("torch") is None:
-        index = () if sys.platform == "darwin" else ("--index-url", "https://download.pytorch.org/whl/cpu")
-        run(*pip, "torch", "torchaudio", *index)
+    plan = torch_plan(installed_torch(), a.gpu, sys.platform)
+    if plan:
+        uninstall, index = plan
+        if uninstall:
+            run(sys.executable, "-m", "pip", "uninstall", "-y", "torch", "torchaudio")
+        run(*pip, "torch", "torchaudio", *(("--index-url", index) if index else ()))
     run(*pip, "-r", "requirements.txt", "-r", "requirements-assistant.txt")
     run(*pip, "-e", "vendor/monotonic_align")
 
