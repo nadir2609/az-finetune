@@ -445,13 +445,11 @@ How it behaves:
   a separate conversation. A connection with no recognised speech for 5 minutes is closed,
   so a page left open does not hold a place.
 - **Half-duplex**, as in `talk.py`: the page mutes its microphone while the reply plays.
-- **Delay** from the end of speech to the first audio: estimated at about 2.3 s on the RTX 5060,
-  from the stages measured separately — 0.6 s to detect the end of speech, 0.3–0.5 s of speech
-  recognition for a 3 s question, Gemini's first sentence (0.7–1.2 s) and 0.25 s for the voice.
-  It has not yet been measured end to end with Gemini answering. Visitors who stop speaking at the
-  same moment are recognized one after another, so the last of five waits up to about 1 s longer,
-  which can put that case just over 3 s. Check it with the
-  server running and a recorded question:
+- **Delay** from the end of speech to the first audio, measured on the RTX 5060 with
+  `gemini-3.5-flash-lite`: 2.3–2.5 s for one visitor (0.6 s to detect the end of speech, 0.4 s of
+  speech recognition for a 3 s question, 0.75 s for Gemini's first sentence, 0.2–0.5 s for the
+  voice). Visitors share the one GPU: when five stop speaking at the same moment they wait for each
+  other, and the delay was 3.0–5.2 s. Check it with the server running and a recorded question:
   `.\.venv\Scripts\python.exe scripts\measure_latency.py --wav question.wav` (add `--sessions 5`).
 - **Gemini plan:** the free plan's daily request limit is used up quickly by several visitors; use a
   paid key for a demo. The key and the access code stay on this machine and are never sent to the page.
