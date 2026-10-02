@@ -16,6 +16,7 @@ FALLBACK_TEXT = "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa
 SECTIONS = ("tts", "stt", "llm", "vad", "chunker", "playback")
 _TIMINGS = ("stt", "llm_first_chunk", "tts_first", "first_audio")
 _SLICE = OUT_RATE // 4  # samples per write to the sound card
+_RTF_MIN_SAMPLES = OUT_RATE  # shorter audio is mostly fixed overhead and says little about the TTS speed
 _END = object()
 
 
@@ -33,10 +34,14 @@ def _ms(t0):
 
 
 class Pipeline:
-    """mic, segmenter and stt are only needed for run()/step(); run_text() and reply() work without them."""
+    """mic, segmenter and stt are only needed for run()/step(); run_text() and reply() work without them.
+    `rtf` is the TTS speed (seconds of synthesis per second of audio) if already known; it is re-measured on
+    every chunk and sizes the chunks of the next reply (see SentenceChunker)."""
 
     def __init__(self, llm, tts, player, mic=None, segmenter=None, stt=None, chunker=None,
-                 gap_ms=150, tail_ms=300, fallback_wav=None, log=print, sleep=time.sleep):
+                 gap_ms=150, tail_ms=300, fallback_wav=None, log=print, sleep=time.sleep, rtf=None,
+                 clock=time.perf_counter):
+        self.rtf, self.clock = rtf, clock
         self.llm, self.tts, self.player = llm, tts, player
         self.mic, self.segmenter, self.stt = mic, segmenter, stt
         self.chunker_cfg = chunker or {}
@@ -101,7 +106,7 @@ class Pipeline:
                                     daemon=True)]
         for w in workers:
             w.start()
-        chunker, said = SentenceChunker(**self.chunker_cfg), []
+        chunker, said = SentenceChunker(**self.chunker_cfg, rtf=self.rtf), []
         try:
             try:
                 for delta in self.llm.stream_reply(user_text):
@@ -155,7 +160,11 @@ class Pipeline:
             try:
                 spoken = to_spoken(item)
                 if spoken:
+                    start = self.clock()
                     wav = self.tts.synthesize(spoken)
+                    if len(wav) >= _RTF_MIN_SAMPLES:
+                        rtf = (self.clock() - start) / (len(wav) / OUT_RATE)
+                        self.rtf = rtf if self.rtf is None else (self.rtf + rtf) / 2
                     marks.setdefault("tts_first", _ms(t0))
                     audio_q.put(wav)
             except Exception as e:
