@@ -152,3 +152,12 @@ def test_a_visitor_who_never_speaks_is_closed_and_the_slot_freed():
     with connect(app) as ws:
         assert close_code(ws) == IDLE
     assert wait_until(lambda: not app.state.sessions)
+
+
+def test_the_page_and_its_scripts_are_served():
+    app, _ = make_app()
+    client = TestClient(app)
+    page = client.get("/")
+    assert page.status_code == 200 and "/static/app.js" in page.text
+    assert "AudioWorkletNode" in client.get("/static/app.js").text
+    assert "registerProcessor" in client.get("/static/mic-worklet.js").text

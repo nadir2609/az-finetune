@@ -2,20 +2,30 @@
 import asyncio
 import hmac
 import threading
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from assistant.pipeline import Pipeline
 from assistant.web_io import Disconnected, IdleTimeout, SocketMic, SocketPlayer
 
 BAD_CODE, FULL, IDLE = 4401, 4429, 4408  # WebSocket close codes the page explains to the visitor
 _SEND_TIMEOUT_S = 10
+WEB = Path(__file__).parent / "web"
 
 
 def create_app(stt, tts, fallback_wav, cfg, access_code, make_llm, make_segmenter, rtf=None, log=print):
     """`stt` and `tts` are shared; make_llm() and make_segmenter() are called once per connection."""
     app = FastAPI()
     sessions = app.state.sessions = set()  # only touched on the event loop
+
+    @app.get("/")
+    def index():
+        return FileResponse(WEB / "index.html")
+
+    app.mount("/static", StaticFiles(directory=WEB), name="static")
 
     @app.websocket("/ws")
     async def ws(socket: WebSocket, code: str = ""):
