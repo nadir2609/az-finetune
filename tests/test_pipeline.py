@@ -285,3 +285,21 @@ def test_audio_too_short_to_time_reliably_does_not_change_the_measured_speed():
     p.rtf = 0.5
     p.step()
     assert p.rtf == 0.5
+
+
+def test_events_report_the_turn_in_order():
+    p, _, _, _, _ = make(FakeLLM("Bəli."))
+    events = []
+    p.on_event = lambda kind, data: events.append((kind, data))
+    p.step()
+    assert [kind for kind, _ in events] == ["user_text", "reply_text", "latency", "reply_end"]
+    assert events[0][1] == "Salam" and events[1][1] == "Bəli." and events[3][1] is None
+    assert set(events[2][1]) == {"stt", "llm_first_chunk", "tts_first", "first_audio"}
+
+
+def test_a_failing_player_stops_the_rest_of_the_reply():
+    import threading
+    p, _, _, logs, _ = make(FakeLLM("Bəli."), player_fails=True)
+    stop = threading.Event()
+    assert p._play(np.ones(4, dtype=np.float32), stop) is False
+    assert stop.is_set() and any("[audio] OSError" in line for line in logs)
