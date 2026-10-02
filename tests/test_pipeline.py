@@ -250,3 +250,37 @@ def test_long_audio_is_played_in_slices_so_an_interrupt_takes_effect_quickly():
     p, _, player, _, _ = make(FakeLLM("Bəli."), tts=LongTTS())
     p.step()
     assert [len(w) for w in player.played] == [6000, 6000, 3000]  # 0.25 s at 24 kHz
+
+
+class TimedTTS(FakeTTS):
+    """Every chunk becomes 2 s of audio; synthesis appears to take 1.2 s on the injected clock."""
+
+    def __init__(self, clock):
+        super().__init__()
+        self.clock = clock
+
+    def synthesize(self, text):
+        self.clock[0] += 1.2
+        self.texts.append(text)
+        return np.ones(48000, dtype=np.float32)
+
+
+def test_measured_synthesis_speed_sizes_the_chunks_of_the_next_reply():
+    clock, ref = [0.0], []
+    reply = "Azərbaycanın paytaxtı Bakıdır. İçərişəhəri, Alov Qüllələrini, Dənizkənarı Bulvarı görmək olar."
+    tts = TimedTTS(clock)
+    p = Pipeline(FakeLLM(reply), tts, FakePlayer(ref), chunker={"min_chars": 25, "max_chars": 180},
+                 log=lambda line: None, clock=lambda: clock[0])
+    ref.append(p)
+    p.reply("Salam")
+    assert len(tts.texts) == 2 and p.rtf == pytest.approx(0.6)  # no measurement yet: whole sentences
+    tts.texts.clear()
+    p.reply("Salam")
+    assert tts.texts[:2] == ["azərbaycanın paytaxtı bakıdır.", "içərişəhəri, alov qüllələrini,"]
+
+
+def test_audio_too_short_to_time_reliably_does_not_change_the_measured_speed():
+    p, _, _, _, _ = make(FakeLLM("Bəli."))  # FakeTTS: 4 samples
+    p.rtf = 0.5
+    p.step()
+    assert p.rtf == 0.5

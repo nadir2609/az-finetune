@@ -66,3 +66,45 @@ def test_lines_without_punctuation_come_out_at_flush():
     c = SentenceChunker(min_chars=5, max_chars=180)
     assert c.feed("birinci sətir\nikinci sətir") == []
     assert c.flush() == ["birinci sətir\nikinci sətir"]
+
+
+def never_waits(chunks, rtf):
+    """True if every chunk can be synthesized (rtf s per s of audio, one at a time, text length standing in
+    for duration) before the chunks ahead of it have finished playing."""
+    return all(rtf * sum(map(len, chunks[:n + 1])) <= rtf * len(chunks[0]) + sum(map(len, chunks[:n]))
+               for n in range(1, len(chunks)))
+
+
+REPLY = ("Azərbaycanın paytaxtı Bakıdır. İçərişəhəri, Alov Qüllələrini, Dənizkənarı Bulvarı və Fəvvarələr "
+         "Meydanını görmək olar. Həm də müasir memarlıq nümunələri çoxdur, onlara baxmağa dəyər.")
+
+
+def test_without_rtf_a_long_sentence_after_a_short_one_would_leave_a_silence():
+    chunks = SentenceChunker(min_chars=25, max_chars=180).feed(REPLY + " ")
+    assert len(chunks) == 3 and not never_waits(chunks, 0.6)
+
+
+def test_with_rtf_chunks_are_sized_to_be_ready_before_the_audio_ahead_of_them_ends():
+    c = SentenceChunker(min_chars=25, max_chars=180, rtf=0.6)
+    chunks = c.feed(REPLY + " ") + c.flush()
+    assert chunks[0] == "Azərbaycanın paytaxtı Bakıdır."  # the first sentence is never cut: it sets the latency
+    assert " ".join(chunks) == REPLY
+    assert never_waits(chunks, 0.6)
+
+
+def test_with_rtf_the_cuts_prefer_commas_and_leave_no_tiny_pieces():
+    c = SentenceChunker(min_chars=25, max_chars=180, rtf=0.6)
+    chunks = c.feed(REPLY + " ") + c.flush()
+    assert chunks[1] == "İçərişəhəri, Alov Qüllələrini,"
+    assert all(len(x) >= 12 for x in chunks)
+
+
+def test_synthesis_slower_than_real_time_keeps_chunks_no_longer_than_the_first():
+    c = SentenceChunker(min_chars=25, max_chars=180, rtf=1.5)
+    chunks = c.feed(REPLY + " ") + c.flush()
+    assert " ".join(chunks) == REPLY and max(map(len, chunks[1:])) <= len(chunks[0])
+
+
+def test_fast_synthesis_leaves_sentences_whole():
+    c = SentenceChunker(min_chars=25, max_chars=180, rtf=0.05)
+    assert len(c.feed(REPLY + " ") + c.flush()) == 3

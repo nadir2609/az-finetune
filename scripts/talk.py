@@ -2,12 +2,13 @@
 import argparse
 import os
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from assistant.audio_io import MicStream, Player, list_devices  # noqa: E402
+from assistant.audio_io import OUT_RATE, MicStream, Player, list_devices  # noqa: E402
 from assistant.llm import GeminiLLM  # noqa: E402
 from assistant.pipeline import FALLBACK_TEXT, Pipeline, load_config  # noqa: E402
 from assistant.text_norm import to_spoken  # noqa: E402
@@ -56,7 +57,9 @@ def main(argv=None):
     from assistant.tts import TTSService  # torch and StyleTTS2: only after the cheap checks passed
     print("[talk] loading the TTS model ...")
     tts = TTSService(**cfg["tts"])
+    start = time.perf_counter()
     fallback = tts.synthesize(to_spoken(FALLBACK_TEXT))
+    rtf = (time.perf_counter() - start) / (len(fallback) / OUT_RATE)  # TTS speed on this machine
     llm = GeminiLLM(**cfg["llm"])
     mic = segmenter = stt = None
     if not a.text:
@@ -69,7 +72,7 @@ def main(argv=None):
     player = Player(a.output_device)
     pipeline = Pipeline(llm, tts, player, mic=mic, segmenter=segmenter, stt=stt, chunker=cfg["chunker"],
                         gap_ms=cfg["playback"]["gap_ms"], tail_ms=cfg["playback"]["tail_ms"],
-                        fallback_wav=fallback)
+                        fallback_wav=fallback, rtf=rtf)
     print("[talk] ready: " + ("type a message" if a.text else "speak") + " (Ctrl+C to quit)")
     try:
         if a.text:

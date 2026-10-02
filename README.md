@@ -383,7 +383,10 @@ How it behaves:
 - **Half-duplex.** The microphone is ignored while the assistant speaks; you cannot
   interrupt a reply. Use speakers or headphones.
 - **Sentence streaming.** The reply is cut into sentences as Gemini streams it, and each
-  one is synthesized (about 0.4 s) and played while the next is still arriving. Each turn
+  one is synthesized (about 0.4 s) and played while the next is still arriving. The TTS
+  speed is measured as it runs, and a long sentence early in a reply is cut at a comma
+  where it would not be ready before the audio ahead of it ends (on a CPU this avoids a
+  silence of several seconds after a short first sentence). Each turn
   prints a `[latency]` line: `stt`, `llm_first_chunk`, `tts_first`, `first_audio`, in ms
   from the moment the end of speech was detected (0.6 s after you stop talking).
 - **Text normalization.** `assistant/text_norm.py` rewrites what the G2P cannot read:
