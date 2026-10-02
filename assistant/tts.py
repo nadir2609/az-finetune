@@ -27,7 +27,7 @@ def style_blend(text, alpha, beta, short_chars):
 
 class TTSService:
     def __init__(self, checkpoint=None, short_chars=40, inference_path=ROOT / "configs/inference.json",
-                 device="cuda"):
+                 device=None):  # None = cuda if available, else cpu
         import synthesize as S  # imports torch and StyleTTS2
         d = S.load_inference_defaults(inference_path)
         checkpoint = resolve_checkpoint(checkpoint, d)

@@ -3,3 +3,4 @@ data/val_list.txt text eol=lf
 data/OOD_texts.txt text eol=lf
 data/prep_report.json text eol=lf
 *.patch text eol=lf
+models/az_voice/*.pth filter=lfs diff=lfs merge=lfs -text

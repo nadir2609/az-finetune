@@ -61,6 +61,21 @@ def tuned_for_other_run(defaults, checkpoint):
     return bool(tuned) and (ROOT / tuned).resolve().parent != Path(checkpoint).resolve().parent
 
 
+def pick_device(device=None):
+    """`device` if given, else the GPU when torch can use one, else the CPU."""
+    return device or ("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def check_weights(checkpoint):
+    """Fail with a usable message when the checkpoint is missing or is still a Git LFS pointer stub."""
+    checkpoint = Path(checkpoint)
+    if not checkpoint.exists():
+        raise FileNotFoundError(f"TTS checkpoint not found: {checkpoint}")
+    if checkpoint.stat().st_size < 2**20:
+        raise RuntimeError(f"{checkpoint} is a Git LFS pointer, not the model: run `git lfs install` and "
+                           f"`git lfs pull` in the repo")
+
+
 def default_out_dir(checkpoint):
     """<run dir>/samples/<checkpoint stem>: runs share checkpoint names, so keep samples per run."""
     return Path(checkpoint).parent / "samples" / Path(checkpoint).stem
@@ -94,7 +109,9 @@ def preprocess(wave):
 
 
 class Synth:
-    def __init__(self, config_path, checkpoint, device="cuda"):
+    def __init__(self, config_path, checkpoint, device=None):
+        check_weights(checkpoint)
+        device = pick_device(device)
         cwd = os.getcwd()
         os.chdir(STTS)  # upstream config paths (Utils/...) are relative to the repo
         try:
@@ -111,7 +128,7 @@ class Synth:
             self.params = recursive_munch(config["model_params"])
             self.model = build_model(self.params, text_aligner, pitch_extractor, plbert)
             self.g2p = g2p_for_config(config)
-            print(f"[synthesize] config {config_path} (g2p: {self.g2p})")
+            print(f"[synthesize] config {config_path} (g2p: {self.g2p}, device: {device})")
         finally:
             os.chdir(cwd)
         state = torch.load(checkpoint, map_location="cpu")["net"]
@@ -186,7 +203,8 @@ class Synth:
 def main():
     d = load_inference_defaults()
     ap = argparse.ArgumentParser()
-    ap.add_argument("--checkpoint", required=True)
+    ap.add_argument("--checkpoint", default=None, help="default: the one named in configs/inference.json")
+    ap.add_argument("--device", default=None, help="cuda or cpu (default: cuda if available)")
     ap.add_argument("--config", default=None)
     ap.add_argument("--ref", action="append", default=None,
                     help="style reference wav; repeat to average several (default: configs/inference.json, "
@@ -204,9 +222,12 @@ def main():
     # Synth.__init__ chdir's into StyleTTS2/ internally, so a relative path
     # captured only as a string would otherwise be (re)interpreted relative to
     # StyleTTS2/ instead of where the user invoked this script from.
-    checkpoint = Path(a.checkpoint).resolve()
+    if not (a.checkpoint or d.get("checkpoint")):
+        ap.error("--checkpoint is required (configs/inference.json names none)")
+    checkpoint = Path(a.checkpoint).resolve() if a.checkpoint else (ROOT / d["checkpoint"]).resolve()
     config = Path(a.config).resolve() if a.config else default_config(checkpoint)
     val_first = (ROOT / "data/val_list.txt").read_text(encoding="utf-8").splitlines()[0].split("|")
+    have_gt = (ROOT / "data/wavs" / val_first[0]).exists()  # the dataset audio is not in a fresh clone
     if a.ref:
         refs = [Path(r).resolve() for r in a.ref]
     elif d["ref"]:
@@ -219,9 +240,9 @@ def main():
     if tuned_for_other_run(d, checkpoint):
         print(f"[synthesize] note: configs/inference.json was tuned on {d['checkpoint']}; "
               f"re-run eval_tts.py --tune for this run's checkpoints")
-    synth = Synth(config, checkpoint)
+    synth = Synth(config, checkpoint, a.device)
     texts = a.text or DEFAULT_TEXTS
-    if a.text is None:  # add the val item for A/B against the real recording
+    if a.text is None and have_gt:  # add the val item for A/B against the real recording
         texts = texts + [metadata_text(val_first[0])]
         shutil.copy(ROOT / "data/wavs" / val_first[0], out_dir / f"gt_{val_first[0]}")
     ipas = phonemize_texts(texts, g2p=synth.g2p)  # the G2P this checkpoint was trained with

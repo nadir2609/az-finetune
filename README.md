@@ -6,6 +6,53 @@ on a single 8 GB-VRAM Windows GPU (RTX 5060). Everything below reflects what was
 actually built and measured on this machine, not the original plan — the numbers
 come from `configs/calibration.json` and `configs/config_ft_az.yml`.
 
+## Quick start: try the voice (CPU is enough)
+
+The trained voice ships with the repo (`models/az_voice/`, about 510 MB, stored with
+[Git LFS](https://git-lfs.com)), so nothing needs to be trained and no GPU is needed.
+You need Git, Git LFS and Python 3.10.
+
+```powershell
+git lfs install
+git clone https://github.com/nadir2609/az-finetune.git
+cd az-finetune
+py -3.10 -m venv .venv                              # Linux/macOS: python3.10 -m venv .venv
+.\.venv\Scripts\python.exe scripts\setup_inference.py   # Linux/macOS: .venv/bin/python scripts/setup_inference.py
+```
+
+`setup_inference.py` installs CPU PyTorch and the requirements, clones StyleTTS2 at the
+pinned commit and patches it (about 5 minutes, about 1.5 GB of downloads). On Linux the
+assistant also needs PortAudio (`sudo apt install libportaudio2`).
+
+**Speak your own sentence:**
+
+```powershell
+.\.venv\Scripts\python.exe scripts\synthesize.py --text "Salam, bu gün hava çox gözəldir." --out_dir out
+```
+
+The result is `out\01.wav` (24 kHz). Repeat `--text "..."` for several sentences
+(`02.wav`, `03.wav`, ...). On a CPU a sentence takes roughly as long to generate as it
+lasts, after about 20 s of model loading. Write numbers as words (`yüz əlli`, not `150`);
+only the assistant below converts them for you.
+
+**Talk with the LLM (Gemini) in this voice:**
+
+1. Create a free key at https://aistudio.google.com/apikey.
+2. Put it in a file named `.env` in the repo root, as one line: `GEMINI_API_KEY=<your key>`.
+3. Run one of:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\talk.py --text     # type your question, hear the answer
+.\.venv\Scripts\python.exe scripts\talk.py            # speak into the microphone instead
+```
+
+Microphone mode downloads the Whisper speech recognizer on first run (about 1.6 GB) and
+on a CPU needs a few seconds per turn to recognize speech; it prints
+`cuda unavailable ... falling back to CPU int8` once, which is expected. `--text` mode
+needs neither. Details and settings are under *Voice assistant* below.
+
+The rest of this README documents how the voice was trained.
+
 ## Why English PL-BERT (no fine-tuning of it as a separate step)
 
 StyleTTS2's second stage uses a PL-BERT text encoder to condition prosody. There
@@ -42,6 +89,8 @@ pretraining of this one on phonemized Azerbaijani text).
 | `scripts/train.ps1` | **The script you run to start/resume training.** |
 | `scripts/monitor.py` | Live progress view of the current run's `train.log` (`log_dir` in the config). |
 | `scripts/synthesize.py` | Generate WAVs from a checkpoint for listening/evaluation. |
+| `models/az_voice/` | The shipped voice: inference weights (Git LFS), their config and the 16 style reference clips. Built from a training checkpoint by `scripts/export_voice.py`. |
+| `scripts/setup_inference.py` | Inference-only setup (CPU or GPU, any OS); see *Quick start*. |
 | `assistant/`, `scripts/talk.py`, `configs/assistant.yml` | Voice assistant: microphone → Whisper → Gemini → this model's voice (see *Voice assistant*). |
 | `scripts/eval_tts.py`, `configs/inference.json` | Duration / pitch-range comparison against the real recordings; `--tune` writes the inference defaults. |
 | `patches/styletts2.patch` | Everything changed vs. upstream StyleTTS2 (applied automatically by `setup_env.ps1`). |
