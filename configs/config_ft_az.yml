@@ -1,11 +1,11 @@
-log_dir: C:\Users\user\Desktop\style-tts2-tuning\runs\az_ft2
+log_dir: C:\Users\user\Desktop\az-finetune\runs\az_ft_fresh2
 save_freq: 1
 log_interval: 10
 device: cuda
-epochs: 6
+epochs: 14
 batch_size: 2
 max_len: 150
-pretrained_model: C:\Users\user\Desktop\style-tts2-tuning\runs\az_ft\epoch_2nd_00010.pth
+pretrained_model: C:\Users\user\Desktop\az-finetune\StyleTTS2\Models\LibriTTS\epochs_2nd_00020.pth
 second_stage_load_pretrained: true
 load_only_params: true
 F0_path: Utils/JDC/bst.t7
@@ -13,10 +13,10 @@ ASR_config: Utils/ASR/config.yml
 ASR_path: Utils/ASR/epoch_00080.pth
 PLBERT_dir: Utils/PLBERT/
 data_params:
-  train_data: C:\Users\user\Desktop\style-tts2-tuning\data\train_list.txt
-  val_data: C:\Users\user\Desktop\style-tts2-tuning\data\val_list.txt
-  root_path: C:\Users\user\Desktop\style-tts2-tuning\data\wavs
-  OOD_data: C:\Users\user\Desktop\style-tts2-tuning\data\OOD_texts.txt
+  train_data: C:\Users\user\Desktop\az-finetune\data\train_list.txt
+  val_data: C:\Users\user\Desktop\az-finetune\data\val_list.txt
+  root_path: C:\Users\user\Desktop\az-finetune\data\wavs
+  OOD_data: C:\Users\user\Desktop\az-finetune\data\OOD_texts.txt
   min_length: 50
 preprocess_params:
   sr: 24000
@@ -25,7 +25,7 @@ preprocess_params:
     win_length: 1200
     hop_length: 300
 model_params:
-  multispeaker: true
+  multispeaker: false
   dim_in: 64
   hidden_dim: 512
   max_conv_dim: 512
