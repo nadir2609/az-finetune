@@ -92,6 +92,7 @@ pretraining of this one on phonemized Azerbaijani text).
 | `models/az_voice/` | The shipped voice: inference weights (Git LFS), their config and the 16 style reference clips. Built from a training checkpoint by `scripts/export_voice.py`. |
 | `scripts/setup_inference.py` | Inference-only setup (CPU or GPU, any OS); see *Quick start*. |
 | `assistant/`, `scripts/talk.py`, `configs/assistant.yml` | Voice assistant: microphone → Whisper → Gemini → this model's voice (see *Voice assistant*). |
+| `scripts/serve.py`, `assistant/server.py`, `assistant/web/` | Web demo: the same assistant as a web page for phones and laptops (see *Web demo*). |
 | `scripts/eval_tts.py`, `configs/inference.json` | Duration / pitch-range comparison against the real recordings; `--tune` writes the inference defaults. |
 | `patches/styletts2.patch` | Everything changed vs. upstream StyleTTS2 (applied automatically by `setup_env.ps1`). |
 | `StyleTTS2/` | Upstream clone (gitignored, rebuilt by `setup_env.ps1`). |
@@ -414,6 +415,45 @@ the GPU.
 
 If a sound device refuses to open, pick another one from `--list-devices` with
 `--input-device N` / `--output-device N`.
+
+## Web demo
+
+The same assistant as a web page: visitors open a link on a phone or laptop, type the access code,
+and talk hands-free. The models run on this machine's GPU; the page only streams audio.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\setup_inference.py --gpu   # once: the CUDA build of PyTorch (NVIDIA GPU)
+# in .env, next to GEMINI_API_KEY:  ASSISTANT_ACCESS_CODE=<a code visitors must type>
+.\.venv\Scripts\python.exe scripts\serve.py                   # then open http://127.0.0.1:8000
+```
+
+To let other people in, give the local server a public https address with a tunnel (browsers only
+allow the microphone over https):
+
+```powershell
+winget install Cloudflare.cloudflared      # once
+cloudflared tunnel --url http://127.0.0.1:8000
+```
+
+It prints a `https://....trycloudflare.com` link; send it together with the access code. The link
+changes every time the tunnel is restarted, and the demo is only up while this PC and both commands
+are running.
+
+How it behaves:
+
+- **Up to 5 visitors at once** (`server.max_sessions`); one more is told the demo is full. Each has
+  a separate conversation. A connection that sends no audio for 5 minutes is closed.
+- **Half-duplex**, as in `talk.py`: the page mutes its microphone while the reply plays.
+- **Delay** from the end of speech to the first audio, on the RTX 5060: 0.6 s to detect the end of
+  speech, 0.3–0.5 s of speech recognition for a 3 s question, Gemini's first sentence (0.7–1.2 s),
+  and 0.25 s for the voice: about 2.3 s. Visitors who stop speaking at the same moment are
+  recognized one after another, so the last of five waits up to about 1 s longer. Check it with the
+  server running and a recorded question:
+  `.\.venv\Scripts\python.exe scripts\measure_latency.py --wav question.wav` (add `--sessions 5`).
+- **Gemini plan:** the free plan's daily request limit is used up quickly by several visitors; use a
+  paid key for a demo. The key and the access code stay on this machine and are never sent to the page.
+
+Do not run the server during a training run: both need the GPU.
 
 ## Troubleshooting
 
