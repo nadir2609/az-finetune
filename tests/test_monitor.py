@@ -22,3 +22,11 @@ def test_eta_capped_by_max_hours():
     assert abs(eta_hours(s) - 10376 * 0.8 / 3600) < 0.01
     s["sec_per_step"] = 5.0
     assert eta_hours(s) == 6.5
+
+
+def test_default_log_follows_the_config_log_dir(tmp_path):
+    from monitor import default_log
+    cfg = tmp_path / "config_ft_az.yml"
+    cfg.write_text(f"log_dir: {tmp_path / 'az_ft2'}\nepochs: 3\n", encoding="utf-8")
+    assert default_log(cfg) == tmp_path / "az_ft2" / "train.log"
+    assert default_log(tmp_path / "missing.yml").name == "train.log"  # falls back to runs/az_ft

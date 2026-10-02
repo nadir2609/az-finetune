@@ -9,3 +9,11 @@ StyleTTS2/
 __pycache__/
 .pytest_cache/
 *.egg-info/
+
+# secrets (GEMINI_API_KEY for scripts/talk.py)
+.env
+
+# shipped inference bundle (weights via Git LFS, see .gitattributes)
+!models/az_voice/*.pth
+models/*/samples/
+out/

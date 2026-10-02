@@ -1,0 +1,37 @@
+{
+  "checkpoint": "models/az_voice/az_styletts2.pth",
+  "ref_strategy": "mean_expressive",
+  "ref": [
+    "models/az_voice/ref/000063.wav",
+    "models/az_voice/ref/000386.wav",
+    "models/az_voice/ref/002533.wav",
+    "models/az_voice/ref/002443.wav",
+    "models/az_voice/ref/002294.wav",
+    "models/az_voice/ref/001019.wav",
+    "models/az_voice/ref/001291.wav",
+    "models/az_voice/ref/000558.wav",
+    "models/az_voice/ref/000321.wav",
+    "models/az_voice/ref/001108.wav",
+    "models/az_voice/ref/002601.wav",
+    "models/az_voice/ref/001246.wav",
+    "models/az_voice/ref/002101.wav",
+    "models/az_voice/ref/001231.wav",
+    "models/az_voice/ref/001914.wav",
+    "models/az_voice/ref/001390.wav"
+  ],
+  "alpha": 0.3,
+  "beta": 0.3,
+  "embedding_scale": 2.0,
+  "speed": 1.2,
+  "steps": 10,
+  "metrics": {
+    "dur_ratio": 1.1150464782785932,
+    "f0_ratio": 0.8645540597617375,
+    "score": 0.25443753143138426
+  },
+  "baseline": {
+    "dur_ratio": 1.2213212857744107,
+    "f0_ratio": 0.7093037468331924,
+    "score": 0.5434047221776073
+  }
+}

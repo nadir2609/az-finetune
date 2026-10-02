@@ -1,0 +1,28 @@
+# Pronunciation overrides for scripts/az_g2p.py: <lowercase word><TAB><IPA>.
+# An entry replaces the rules for that exact word form (inflected forms need their own entry).
+# IPA must use StyleTTS2's symbols (see az_text.STYLETTS_SYMBOLS); ˈ goes right before the stressed vowel,
+# and an entry without ˈ is unstressed.
+# Unstressed clitics
+və	væ
+ki	ci
+da	da
+də	dæ
+ya	ja
+mı	mɯ
+mi	mi
+mu	mu
+mü	my
+# Place names with non-final stress
+bakı	bˈakɯ
+# Nouns/adjectives the suffix stress rules would misread (keep final stress)
+pendir	pendˈir
+hündür	hyndˈyr
+yeməyin	jemæjˈin
+yeməyinə	jemæjinˈæ
+köməyin	cœmæjˈin
+köməyiniz	cœmæjinˈiz
+məhəmmədin	mæhæmmædˈin
+bəkməz	bæçmˈæz
+rəsmi	ræsmˈi
+elmi	elmˈi
+həcmi	hædʒmˈi
