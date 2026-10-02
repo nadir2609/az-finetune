@@ -1,6 +1,7 @@
 """Azerbaijani speech-to-text with faster-whisper."""
 import os
 import re
+import threading
 from pathlib import Path
 
 import numpy as np
@@ -34,6 +35,7 @@ class WhisperSTT:
         from faster_whisper import WhisperModel
         _add_torch_dlls()
         self.initial_prompt = initial_prompt
+        self._lock = threading.Lock()  # one model shared by every web session
         try:
             self.model = WhisperModel(model, device=device, compute_type=compute_type)
             self.transcribe(np.zeros(16000, dtype=np.float32))  # GPU libraries are first used here
@@ -45,7 +47,8 @@ class WhisperSTT:
 
     def transcribe(self, audio):
         """16 kHz mono float32 array -> Azerbaijani text ("" if no speech)."""
-        segments, _ = self.model.transcribe(audio, language="az", beam_size=5, vad_filter=False,
-                                            condition_on_previous_text=False,
-                                            initial_prompt=self.initial_prompt)
-        return clean_transcript(segments, self.initial_prompt)
+        with self._lock:  # the segments are decoded while they are read, so that stays inside
+            segments, _ = self.model.transcribe(audio, language="az", beam_size=5, vad_filter=False,
+                                                condition_on_previous_text=False,
+                                                initial_prompt=self.initial_prompt)
+            return clean_transcript(segments, self.initial_prompt)
