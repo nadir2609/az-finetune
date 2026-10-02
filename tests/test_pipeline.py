@@ -190,7 +190,7 @@ def test_run_starts_and_stops_the_microphone():
 def test_load_config_names_missing_sections(tmp_path):
     path = tmp_path / "assistant.yml"
     path.write_text("tts: {}\nstt: {}\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="llm, vad, chunker, playback"):
+    with pytest.raises(ValueError, match="llm, vad, chunker, playback, server"):
         load_config(path)
 
 
@@ -203,6 +203,7 @@ def test_shipped_config_matches_the_constructors():
     assert set(cfg["stt"]) == {"model", "device", "compute_type", "initial_prompt"}
     assert set(cfg["playback"]) == {"gap_ms", "tail_ms"}
     assert set(cfg["tts"]) == {"checkpoint", "short_chars"}
+    assert set(cfg["server"]) == {"host", "port", "max_sessions", "idle_timeout_s"}
 
 
 def test_reply_with_nothing_speakable_plays_the_fallback_phrase():

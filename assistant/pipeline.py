@@ -13,7 +13,7 @@ from assistant.llm import LLMError
 from assistant.text_norm import to_spoken
 
 FALLBACK_TEXT = "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa, bir az sonra yenidən cəhd edin."
-SECTIONS = ("tts", "stt", "llm", "vad", "chunker", "playback")
+SECTIONS = ("tts", "stt", "llm", "vad", "chunker", "playback", "server")
 _TIMINGS = ("stt", "llm_first_chunk", "tts_first", "first_audio")
 _SLICE = OUT_RATE // 4  # samples per write to the sound card
 _RTF_MIN_SAMPLES = OUT_RATE  # shorter audio is mostly fixed overhead and says little about the TTS speed

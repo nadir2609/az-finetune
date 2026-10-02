@@ -30,3 +30,8 @@ chunker:
 playback:
   gap_ms: 150
   tail_ms: 300
+server:                       # web demo (scripts/serve.py)
+  host: 127.0.0.1             # the tunnel connects locally; nothing is exposed on the LAN
+  port: 8000
+  max_sessions: 5             # visitors connected at the same time
+  idle_timeout_s: 300         # a connection that sends no audio for this long is closed
