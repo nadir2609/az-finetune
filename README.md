@@ -47,7 +47,7 @@ only the assistant below converts them for you.
 ```
 
 Microphone mode downloads the Whisper speech recognizer on first run (about 1.6 GB) and
-on a CPU needs a few seconds per turn to recognize speech; it prints
+on a CPU needs roughly 10 s per turn to recognize speech; it prints
 `cuda unavailable ... falling back to CPU int8` once, which is expected. `--text` mode
 needs neither. Details and settings are under *Voice assistant* below.
 

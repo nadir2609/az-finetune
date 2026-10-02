@@ -256,4 +256,6 @@ def main():
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8")  # Azerbaijani letters on a cp1252 Windows console
     main()
