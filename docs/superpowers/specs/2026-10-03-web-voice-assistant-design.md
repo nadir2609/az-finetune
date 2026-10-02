@@ -197,7 +197,8 @@ Close codes: 4401 wrong access code, 4429 demo full, 4408 idle timeout.
 - Speech recognition error or nothing intelligible: the turn is dropped silently.
 - Visitor disconnects mid-reply: the send raises `Disconnected`, the turn's stop
   flag is set, the session thread ends and the session is freed.
-- No audio for `idle_timeout_s`: the session is closed with code 4408.
+- No recognised speech for `idle_timeout_s`: the session is closed with code 4408
+  (an open page streams silence continuously, so audio alone does not count as activity).
 - A crash in one session's thread is logged and closes only that connection.
 
 ## Testing

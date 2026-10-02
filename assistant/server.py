@@ -48,6 +48,8 @@ def create_app(stt, tts, fallback_wav, cfg, access_code, make_llm, make_segmente
                 raise Disconnected(f"{type(e).__name__}: {e}") from e
 
         def on_event(kind, data):
+            if kind == "user_text":
+                mic.touch()  # only a recognised turn counts as activity: an open page streams silence
             message = {"type": kind}
             if kind == "latency":
                 message.update(data)

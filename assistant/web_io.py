@@ -4,9 +4,10 @@ import time
 
 import numpy as np
 
-from assistant.vad import BLOCK
+from assistant.vad import BLOCK, SAMPLE_RATE
 
 _BLOCK_BYTES = 2 * BLOCK  # 16-bit samples
+MAX_QUEUED_BLOCKS = 30 * SAMPLE_RATE // BLOCK  # 30 s: audio nobody reads (a reply is being prepared) is capped
 
 
 class Disconnected(Exception):
@@ -19,7 +20,8 @@ class IdleTimeout(Disconnected):
 
 class SocketMic:
     """push() what the browser sends (16 kHz mono 16-bit little-endian, any message size);
-    read() hands out 512-sample float32 blocks like MicStream."""
+    read() hands out 512-sample float32 blocks like MicStream. An open page streams audio all the time,
+    so the idle timeout counts from the last touch() (a recognised turn), not from the last audio."""
 
     def __init__(self, idle_timeout_s=300, clock=time.monotonic):
         self._q, self._buf = queue.Queue(), b""
@@ -27,11 +29,23 @@ class SocketMic:
         self._last, self._closed = clock(), False
 
     def push(self, data):
-        self._last = self._clock()
         self._buf += data
-        while len(self._buf) >= _BLOCK_BYTES:
-            block, self._buf = self._buf[:_BLOCK_BYTES], self._buf[_BLOCK_BYTES:]
-            self._q.put(np.frombuffer(block, dtype="<i2").astype(np.float32) / 32768)
+        n = len(self._buf) // _BLOCK_BYTES
+        if not n:
+            return
+        samples = np.frombuffer(self._buf, dtype="<i2", count=n * BLOCK).astype(np.float32) / 32768
+        self._buf = self._buf[n * _BLOCK_BYTES:]
+        for i in range(max(0, n - MAX_QUEUED_BLOCKS), n):
+            self._q.put(samples[i * BLOCK:(i + 1) * BLOCK])
+        while self._q.qsize() > MAX_QUEUED_BLOCKS:  # keep the newest
+            try:
+                self._q.get_nowait()
+            except queue.Empty:
+                break
+
+    def touch(self):
+        """The visitor is active: restart the idle clock."""
+        self._last = self._clock()
 
     def start(self):
         pass
@@ -46,11 +60,11 @@ class SocketMic:
         """Next block, or None if none arrived within `timeout` seconds."""
         if self._closed:
             raise Disconnected("connection closed")
+        if self._clock() - self._last > self._idle:
+            raise IdleTimeout(f"nothing said for {self._idle} s")
         try:
             return self._q.get(timeout=timeout) if timeout else self._q.get_nowait()
         except queue.Empty:
-            if self._clock() - self._last > self._idle:
-                raise IdleTimeout(f"no audio for {self._idle} s") from None
             return None
 
     def drain(self):

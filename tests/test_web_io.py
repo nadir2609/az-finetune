@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from assistant.web_io import Disconnected, IdleTimeout, SocketMic, SocketPlayer
+from assistant.web_io import MAX_QUEUED_BLOCKS, Disconnected, IdleTimeout, SocketMic, SocketPlayer
 
 
 def pcm(samples):
@@ -47,18 +47,31 @@ def test_read_after_close_raises_disconnected():
         mic.read(timeout=0)
 
 
-def test_no_audio_for_longer_than_the_idle_timeout_raises_idle_timeout():
+def test_idle_timeout_counts_from_the_last_recognised_turn_not_from_the_last_audio():
     now = [0.0]
     mic = SocketMic(idle_timeout_s=300, clock=lambda: now[0])
     now[0] = 299.0
-    assert mic.read(timeout=0) is None
-    mic.push(pcm([0] * 512))  # audio restarts the idle clock
-    mic.drain()
+    mic.push(pcm([0] * 512))  # an open page streams silence all the time: that is not activity
+    assert mic.read(timeout=0) is not None
+    mic.touch()  # a turn was recognised
     now[0] = 598.0
     assert mic.read(timeout=0) is None
     now[0] = 600.0
-    with pytest.raises(IdleTimeout):
+    mic.push(pcm([0] * 512))
+    with pytest.raises(IdleTimeout):  # even with audio waiting
         mic.read(timeout=0)
+
+
+def test_audio_that_nobody_reads_is_capped_keeping_the_newest():
+    mic = SocketMic()
+    seconds = 40
+    blocks = seconds * 16000 // 512
+    mic.push(b"".join(pcm([i] * 512) for i in range(blocks)))  # one huge message
+    kept = []
+    while (block := mic.read(timeout=0)) is not None:
+        kept.append(round(float(block[0]) * 32768))
+    assert len(kept) == MAX_QUEUED_BLOCKS < blocks
+    assert kept[0] == blocks - MAX_QUEUED_BLOCKS and kept[-1] == blocks - 1
 
 
 def test_start_and_stop_exist_for_the_pipeline():

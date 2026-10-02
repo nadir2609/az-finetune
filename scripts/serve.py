@@ -49,7 +49,8 @@ def main(argv=None):
                      make_segmenter=lambda: silero_segmenter(VadConfig(**cfg["vad"])), rtf=rtf)
     host, port = cfg["server"]["host"], cfg["server"]["port"]
     print(f"[serve] open http://{host}:{port} (Ctrl+C to quit)")
-    uvicorn.run(app, host=host, port=port, log_level="warning")
+    # the page sends 1 KB audio messages; a huge one would stall every visitor while it is unpacked
+    uvicorn.run(app, host=host, port=port, log_level="warning", ws_max_size=65536)
 
 
 if __name__ == "__main__":

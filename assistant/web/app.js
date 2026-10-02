@@ -4,7 +4,7 @@ const TAIL_S = 0.3;       // keep the microphone muted this long after the reply
 const CLOSED = {
   4401: "Giriş kodu yanlışdır.",
   4429: "Demo hazırda doludur. Bir az sonra yenidən cəhd edin.",
-  4408: "Uzun müddət səs gəlmədiyi üçün bağlantı bağlandı.",
+  4408: "Uzun müddət danışılmadığı üçün bağlantı bağlandı.",
 };
 const $ = (id) => document.getElementById(id);
 
@@ -46,28 +46,54 @@ function stop(message) {
   if (micCtx) micCtx.close();
   if (playCtx) playCtx.close();
   stream = micCtx = playCtx = socket = null;
+  playUntil = 0;  // the next start gets a new audio clock
+  thinking = false;
   $("start").disabled = false;
   setStatus(message);
 }
 
+// The microphone -> worklet chain. Some browsers refuse a 16 kHz context for the microphone;
+// then a default-rate context is used and the worklet does the resampling.
+async function connectMic() {
+  for (const lastTry of [false, true]) {
+    try {
+      await micCtx.audioWorklet.addModule("/static/mic-worklet.js");
+      const mic = new AudioWorkletNode(micCtx, "mic");
+      micCtx.createMediaStreamSource(stream).connect(mic);
+      mic.connect(micCtx.destination);  // it outputs silence; some browsers only run connected nodes
+      return mic;
+    } catch (e) {
+      if (lastTry) throw e;
+      micCtx.close();
+      micCtx = new AudioContext();
+      micCtx.resume();
+    }
+  }
+}
+
 async function start() {
   $("start").disabled = true;
-  playCtx = new AudioContext();  // created in the tap handler: phones only allow audio after a tap
+  // Both contexts are created in the tap handler: phones only allow audio after a tap.
+  playCtx = new AudioContext();
+  try {
+    micCtx = new AudioContext({ sampleRate: 16000 });  // let the browser resample where it can
+  } catch (e) {
+    micCtx = new AudioContext();
+  }
   playCtx.resume();
+  micCtx.resume();
   try {
     stream = await navigator.mediaDevices.getUserMedia(
       { audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1 } });
   } catch (e) {
     return stop("Mikrofona icazə verilmədi. Brauzerin tənzimləmələrində icazə verin.");
   }
+  let mic;
   try {
-    micCtx = new AudioContext({ sampleRate: 16000 });  // let the browser resample where it can
+    mic = await connectMic();
   } catch (e) {
-    micCtx = new AudioContext();
+    return stop("Mikrofonu işə salmaq mümkün olmadı. Başqa brauzerdə cəhd edin.");
   }
-  await micCtx.audioWorklet.addModule("/static/mic-worklet.js");
-  const mic = new AudioWorkletNode(micCtx, "mic");
-  micCtx.createMediaStreamSource(stream).connect(mic);
 
   const scheme = location.protocol === "https:" ? "wss:" : "ws:";
   socket = new WebSocket(`${scheme}//${location.host}/ws?code=${encodeURIComponent($("code").value)}`);
@@ -83,7 +109,7 @@ async function start() {
       addLine("Siz", message.text);
       thinking = true;
     } else if (message.type === "reply_text") {
-      addLine("Köməkçi", message.text);
+      if (message.text) addLine("Köməkçi", message.text);
     } else if (message.type === "latency" && message.first_audio !== undefined) {
       $("latency").textContent = `Cavab ${(message.first_audio / 1000).toFixed(1)} saniyəyə başladı`;
     } else if (message.type === "reply_end") {
@@ -92,6 +118,14 @@ async function start() {
   };
   socket.onclose = (e) => stop(CLOSED[e.code] || "Bağlantı kəsildi. Yenidən başlayın.");
 }
+
+// A phone suspends audio when the page goes to the background; without this the microphone would
+// stay muted (the playback clock stops) after coming back.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  if (playCtx) playCtx.resume();
+  if (micCtx) micCtx.resume();
+});
 
 setInterval(() => {
   if (!socket || socket.readyState !== WebSocket.OPEN) return;

@@ -43,7 +43,14 @@ class FakeSegmenter:
         pass
 
 
-def make_app(code="secret", **server):
+class DeafSegmenter(FakeSegmenter):
+    """Never hears an utterance (a page left open in a quiet room)."""
+
+    def feed(self, block):
+        return None
+
+
+def make_app(code="secret", segmenter=FakeSegmenter, **server):
     llms = []
 
     def make_llm():
@@ -51,7 +58,7 @@ def make_app(code="secret", **server):
         return llms[-1]
 
     cfg = {**CFG, "server": {**CFG["server"], **server}}
-    app = create_app(FakeSTT(), FakeTTS(), np.zeros(4, dtype=np.float32), cfg, code, make_llm, FakeSegmenter,
+    app = create_app(FakeSTT(), FakeTTS(), np.zeros(4, dtype=np.float32), cfg, code, make_llm, segmenter,
                      log=lambda line: None)
     return app, llms
 
@@ -161,3 +168,21 @@ def test_the_page_and_its_scripts_are_served():
     assert page.status_code == 200 and "/static/app.js" in page.text
     assert "AudioWorkletNode" in client.get("/static/app.js").text
     assert "registerProcessor" in client.get("/static/mic-worklet.js").text
+
+
+def test_an_open_page_that_only_streams_silence_is_closed_and_the_slot_freed():
+    app, _ = make_app(segmenter=DeafSegmenter, max_sessions=1, idle_timeout_s=0.2)
+    with connect(app) as ws:
+        for _ in range(20):  # 1 s of audio arriving all the time
+            ws.send_bytes(BLOCK)
+            time.sleep(0.05)
+        assert not app.state.sessions  # closed while the stream was still running
+        assert close_code(ws) == IDLE
+
+
+def test_a_recognised_turn_restarts_the_idle_clock():
+    app, _ = make_app(idle_timeout_s=0.4)
+    with connect(app) as ws:
+        for _ in range(3):  # 0.5 s in all: longer than the timeout, but never 0.4 s without a turn
+            time.sleep(0.25)
+            assert turn(ws)[-1][0] == "reply_end"
