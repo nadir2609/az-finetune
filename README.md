@@ -46,8 +46,8 @@ only the assistant below converts them for you.
 .\.venv\Scripts\python.exe scripts\talk.py            # speak into the microphone instead
 ```
 
-Microphone mode downloads the Whisper speech recognizer on first run (about 1.6 GB) and
-on a CPU needs roughly 10 s per turn to recognize speech; it prints
+Microphone mode downloads and converts the Whisper speech recognizer on first run (a 3.2 GB
+download, about 5 minutes) and on a CPU needs roughly 10 s per turn to recognize speech; it prints
 `cuda unavailable ... falling back to CPU int8` once, which is expected. `--text` mode
 needs neither. Details and settings are under *Voice assistant* below.
 
@@ -365,7 +365,7 @@ same text and speaker, so it's the most direct fidelity check available.
 ## Voice assistant
 
 Speak Azerbaijani into the microphone, get a spoken answer in this model's voice:
-microphone → Silero VAD → faster-whisper (`large-v3-turbo`) → Gemini → StyleTTS2 → speakers.
+microphone → Silero VAD → faster-whisper (`LocalDoc/azerbaijani-whisper-turbo`) → Gemini → StyleTTS2 → speakers.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-assistant.txt   # once
@@ -375,8 +375,9 @@ microphone → Silero VAD → faster-whisper (`large-v3-turbo`) → Gemini → S
 .\.venv\Scripts\python.exe scripts\talk.py --list-devices
 ```
 
-Startup takes about 30 s (TTS and Whisper models; the first run also downloads Whisper,
-about 1.6 GB). The voice, checkpoint and style settings are the ones in
+Startup takes about 30 s (TTS and Whisper models). The first run also downloads the
+recognizer, an Azerbaijani fine-tune of Whisper `large-v3-turbo` (3.2 GB), and converts it
+for faster-whisper into `models/stt/` (1.6 GB); that takes about 5 minutes. The voice, checkpoint and style settings are the ones in
 `configs/inference.json`; everything else is in `configs/assistant.yml`.
 
 How it behaves:
@@ -404,10 +405,11 @@ Settings worth knowing in `configs/assistant.yml`:
 | `llm.thinking_budget` | `0` disables thinking (fastest); `null` for models that reject the setting. |
 | `vad.end_silence_ms` | Silence that ends your turn. Lower is snappier but cuts you off at pauses. |
 | `vad.start_threshold` | Raise it if background noise starts turns by itself. |
+| `stt.model` | A Hugging Face Whisper repo (converted once into `models/stt/`) or a faster-whisper name such as `large-v3-turbo`. |
 | `stt.device` / `stt.compute_type` | `cpu` / `int8` if GPU Whisper does not work (about 1–2 s slower). |
 
-Limitations: Whisper's Azerbaijani is weaker than its major languages and sometimes drifts
-into Turkish, so recognition is the usual cause of an odd answer (check the `Siz:` line).
+Limitations: recognition still makes mistakes (the fine-tune reports 13 % word error rate on
+FLEURS Azerbaijani), so it is the usual cause of an odd answer (check the `Siz:` line).
 The Gemini free plan has per-minute and per-day request limits (the assistant then says it
 cannot answer right now), and Google may use free-plan prompts to improve its models, so
 do not say anything sensitive. Do not run the assistant during a training run: both need

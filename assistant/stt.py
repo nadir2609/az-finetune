@@ -1,10 +1,13 @@
 """Azerbaijani speech-to-text with faster-whisper."""
 import os
 import re
+import shutil
 import threading
 from pathlib import Path
 
 import numpy as np
+
+MODEL_DIR = Path(__file__).resolve().parents[1] / "models" / "stt"  # converted models (gitignored)
 
 
 def _key(text):
@@ -30,10 +33,35 @@ def _add_torch_dlls():
         os.environ["PATH"] = f"{lib}{os.pathsep}{os.environ.get('PATH', '')}"
 
 
+def ct2_model(model, root=MODEL_DIR):
+    """The name or directory faster-whisper should load. A Hugging Face repo in transformers format
+    (a fine-tune such as LocalDoc/azerbaijani-whisper-turbo) is converted to CTranslate2 once, into root."""
+    if "/" not in model or Path(model).exists():
+        return model  # a built-in size name or a local directory
+    out = Path(root) / model.replace("/", "--")
+    if (out / "model.bin").exists():
+        return str(out)
+    from huggingface_hub import list_repo_files
+    if "model.bin" in list_repo_files(model):
+        return model  # already CTranslate2
+    from ctranslate2.converters import TransformersConverter
+    from transformers import WhisperFeatureExtractor
+    print(f"[stt] converting {model} for faster-whisper (once; downloads the model) ...")
+    tmp = out.with_name(out.name + ".tmp")  # renamed when complete, so a stopped conversion is redone
+    shutil.rmtree(tmp, ignore_errors=True)
+    TransformersConverter(model, copy_files=["tokenizer.json"]).convert(str(tmp), quantization="float16")
+    # faster-whisper reads the mel settings from here; without the file it assumes 80 bins, not 128
+    WhisperFeatureExtractor.from_pretrained(model).to_json_file(str(tmp / "preprocessor_config.json"))
+    shutil.rmtree(out, ignore_errors=True)
+    tmp.rename(out)
+    return str(out)
+
+
 class WhisperSTT:
     def __init__(self, model="large-v3-turbo", device="cuda", compute_type="float16", initial_prompt=None):
         from faster_whisper import WhisperModel
         _add_torch_dlls()
+        model = ct2_model(model)
         self.initial_prompt = initial_prompt
         self._lock = threading.Lock()  # one model shared by every web session
         try:
