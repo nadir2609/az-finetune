@@ -46,8 +46,8 @@ only the assistant below converts them for you.
 .\.venv\Scripts\python.exe scripts\talk.py            # speak into the microphone instead
 ```
 
-Microphone mode downloads the Whisper speech recognizer on first run (about 1.6 GB) and
-on a CPU needs roughly 10 s per turn to recognize speech; it prints
+Microphone mode downloads and converts the Whisper speech recognizer on first run (a 3.2 GB
+download, about 5 minutes) and on a CPU needs roughly 10 s per turn to recognize speech; it prints
 `cuda unavailable ... falling back to CPU int8` once, which is expected. `--text` mode
 needs neither. Details and settings are under *Voice assistant* below.
 
@@ -92,6 +92,7 @@ pretraining of this one on phonemized Azerbaijani text).
 | `models/az_voice/` | The shipped voice: inference weights (Git LFS), their config and the 16 style reference clips. Built from a training checkpoint by `scripts/export_voice.py`. |
 | `scripts/setup_inference.py` | Inference-only setup (CPU or GPU, any OS); see *Quick start*. |
 | `assistant/`, `scripts/talk.py`, `configs/assistant.yml` | Voice assistant: microphone → Whisper → Gemini → this model's voice (see *Voice assistant*). |
+| `scripts/serve.py`, `assistant/server.py`, `assistant/web/` | Web demo: the same assistant as a web page for phones and laptops (see *Web demo*). |
 | `scripts/eval_tts.py`, `configs/inference.json` | Duration / pitch-range comparison against the real recordings; `--tune` writes the inference defaults. |
 | `patches/styletts2.patch` | Everything changed vs. upstream StyleTTS2 (applied automatically by `setup_env.ps1`). |
 | `StyleTTS2/` | Upstream clone (gitignored, rebuilt by `setup_env.ps1`). |
@@ -364,7 +365,7 @@ same text and speaker, so it's the most direct fidelity check available.
 ## Voice assistant
 
 Speak Azerbaijani into the microphone, get a spoken answer in this model's voice:
-microphone → Silero VAD → faster-whisper (`large-v3-turbo`) → Gemini → StyleTTS2 → speakers.
+microphone → Silero VAD → faster-whisper (`LocalDoc/azerbaijani-whisper-turbo`) → Gemini → StyleTTS2 → speakers.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements-assistant.txt   # once
@@ -374,8 +375,9 @@ microphone → Silero VAD → faster-whisper (`large-v3-turbo`) → Gemini → S
 .\.venv\Scripts\python.exe scripts\talk.py --list-devices
 ```
 
-Startup takes about 30 s (TTS and Whisper models; the first run also downloads Whisper,
-about 1.6 GB). The voice, checkpoint and style settings are the ones in
+Startup takes about 30 s (TTS and Whisper models). The first run also downloads the
+recognizer, an Azerbaijani fine-tune of Whisper `large-v3-turbo` (3.2 GB), and converts it
+for faster-whisper into `models/stt/` (1.6 GB); that takes about 5 minutes. The voice, checkpoint and style settings are the ones in
 `configs/inference.json`; everything else is in `configs/assistant.yml`.
 
 How it behaves:
@@ -403,10 +405,11 @@ Settings worth knowing in `configs/assistant.yml`:
 | `llm.thinking_budget` | `0` disables thinking (fastest); `null` for models that reject the setting. |
 | `vad.end_silence_ms` | Silence that ends your turn. Lower is snappier but cuts you off at pauses. |
 | `vad.start_threshold` | Raise it if background noise starts turns by itself. |
+| `stt.model` | A Hugging Face Whisper repo (converted once into `models/stt/`) or a faster-whisper name such as `large-v3-turbo`. |
 | `stt.device` / `stt.compute_type` | `cpu` / `int8` if GPU Whisper does not work (about 1–2 s slower). |
 
-Limitations: Whisper's Azerbaijani is weaker than its major languages and sometimes drifts
-into Turkish, so recognition is the usual cause of an odd answer (check the `Siz:` line).
+Limitations: recognition still makes mistakes (the fine-tune reports 13 % word error rate on
+FLEURS Azerbaijani), so it is the usual cause of an odd answer (check the `Siz:` line).
 The Gemini free plan has per-minute and per-day request limits (the assistant then says it
 cannot answer right now), and Google may use free-plan prompts to improve its models, so
 do not say anything sensitive. Do not run the assistant during a training run: both need
@@ -414,6 +417,46 @@ the GPU.
 
 If a sound device refuses to open, pick another one from `--list-devices` with
 `--input-device N` / `--output-device N`.
+
+## Web demo
+
+The same assistant as a web page: visitors open a link on a phone or laptop, type the access code,
+and talk hands-free. The models run on this machine's GPU; the page only streams audio.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\setup_inference.py --gpu   # once: the CUDA build of PyTorch (NVIDIA GPU)
+# in .env, next to GEMINI_API_KEY:  ASSISTANT_ACCESS_CODE=<a code visitors must type>
+.\.venv\Scripts\python.exe scripts\serve.py                   # then open http://127.0.0.1:8000
+```
+
+To let other people in, give the local server a public https address with a tunnel (browsers only
+allow the microphone over https):
+
+```powershell
+winget install Cloudflare.cloudflared      # once
+cloudflared tunnel --url http://127.0.0.1:8000
+```
+
+It prints a `https://....trycloudflare.com` link; send it together with the access code. The link
+changes every time the tunnel is restarted, and the demo is only up while this PC and both commands
+are running.
+
+How it behaves:
+
+- **Up to 5 visitors at once** (`server.max_sessions`); one more is told the demo is full. Each has
+  a separate conversation. A connection with no recognised speech for 5 minutes is closed,
+  so a page left open does not hold a place.
+- **Half-duplex**, as in `talk.py`: the page mutes its microphone while the reply plays.
+- **Delay** from the end of speech to the first audio, measured on the RTX 5060 with
+  `gemini-3.5-flash-lite`: 2.3–2.5 s for one visitor (0.6 s to detect the end of speech, 0.4 s of
+  speech recognition for a 3 s question, 0.75 s for Gemini's first sentence, 0.2–0.5 s for the
+  voice). Visitors share the one GPU: when five stop speaking at the same moment they wait for each
+  other, and the delay was 3.0–5.2 s. Check it with the server running and a recorded question:
+  `.\.venv\Scripts\python.exe scripts\measure_latency.py --wav question.wav` (add `--sessions 5`).
+- **Gemini plan:** the free plan's daily request limit is used up quickly by several visitors; use a
+  paid key for a demo. The key and the access code stay on this machine and are never sent to the page.
+
+Do not run the server during a training run: both need the GPU.
 
 ## Troubleshooting
 

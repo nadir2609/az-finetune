@@ -16,4 +16,5 @@ __pycache__/
 # shipped inference bundle (weights via Git LFS, see .gitattributes)
 !models/az_voice/*.pth
 models/*/samples/
+models/stt/
 out/

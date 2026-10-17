@@ -13,7 +13,7 @@ from assistant.llm import LLMError
 from assistant.text_norm import to_spoken
 
 FALLBACK_TEXT = "Bağışlayın, hazırda cavab verə bilmirəm. Zəhmət olmasa, bir az sonra yenidən cəhd edin."
-SECTIONS = ("tts", "stt", "llm", "vad", "chunker", "playback")
+SECTIONS = ("tts", "stt", "llm", "vad", "chunker", "playback", "server")
 _TIMINGS = ("stt", "llm_first_chunk", "tts_first", "first_audio")
 _SLICE = OUT_RATE // 4  # samples per write to the sound card
 _RTF_MIN_SAMPLES = OUT_RATE  # shorter audio is mostly fixed overhead and says little about the TTS speed
@@ -36,12 +36,13 @@ def _ms(t0):
 class Pipeline:
     """mic, segmenter and stt are only needed for run()/step(); run_text() and reply() work without them.
     `rtf` is the TTS speed (seconds of synthesis per second of audio) if already known; it is re-measured on
-    every chunk and sizes the chunks of the next reply (see SentenceChunker)."""
+    every chunk and sizes the chunks of the next reply (see SentenceChunker).
+    `on_event(kind, data)` is told about each turn: "user_text", "reply_text", "latency", "reply_end"."""
 
     def __init__(self, llm, tts, player, mic=None, segmenter=None, stt=None, chunker=None,
                  gap_ms=150, tail_ms=300, fallback_wav=None, log=print, sleep=time.sleep, rtf=None,
-                 clock=time.perf_counter):
-        self.rtf, self.clock = rtf, clock
+                 clock=time.perf_counter, on_event=None):
+        self.rtf, self.clock, self.on_event = rtf, clock, on_event
         self.llm, self.tts, self.player = llm, tts, player
         self.mic, self.segmenter, self.stt = mic, segmenter, stt
         self.chunker_cfg = chunker or {}
@@ -62,6 +63,10 @@ class Pipeline:
         """Typed turns instead of the microphone (debugging: no mic, VAD or STT involved)."""
         for line in lines:
             self.reply(line)
+
+    def _emit(self, kind, data=None):
+        if self.on_event:
+            self.on_event(kind, data)
 
     def step(self):
         """One microphone turn. Returns the reply text, or None if nothing intelligible was heard."""
@@ -100,6 +105,7 @@ class Pipeline:
         marks = {} if marks is None else marks
         self.state = "THINKING"
         self.log(f"Siz: {user_text}")
+        self._emit("user_text", user_text)
         text_q, audio_q, stop, played = queue.Queue(), queue.Queue(), threading.Event(), []
         workers = [threading.Thread(target=self._tts_worker, args=(text_q, audio_q, stop, marks, t0), daemon=True),
                    threading.Thread(target=self._play_worker, args=(audio_q, stop, played, marks, t0),
@@ -130,8 +136,12 @@ class Pipeline:
             self._join(workers)
             raise
         text = "".join(said).strip()
+        timings = {k: marks[k] for k in _TIMINGS if k in marks}
         self.log(f"Köməkçi: {text}")
-        self.log("[latency] " + " ".join(f"{k}={marks[k]}ms" for k in _TIMINGS if k in marks))
+        self.log("[latency] " + " ".join(f"{k}={v}ms" for k, v in timings.items()))
+        self._emit("reply_text", text)
+        self._emit("latency", timings)
+        self._emit("reply_end")
         return text
 
     @staticmethod
@@ -150,6 +160,7 @@ class Pipeline:
                 self.player.play(wav[i:i + _SLICE])
             return True
         except Exception as e:
+            stop.set()  # nobody can hear the rest of this reply: do not synthesize it
             self.log(f"[audio] {type(e).__name__}: {e}")
             return False
 

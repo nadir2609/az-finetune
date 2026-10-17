@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="az">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Səsli köməkçi</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 16px/1.5 system-ui, sans-serif; max-width: 34rem; margin: 0 auto; padding: 1rem; }
+  h1 { font-size: 1.3rem; }
+  form { display: flex; gap: .5rem; }
+  input, button { font: inherit; padding: .6rem .8rem; border-radius: .5rem; border: 1px solid #8886; }
+  input { flex: 1; min-width: 0; }
+  button { background: #2563eb; color: #fff; border-color: #2563eb; }
+  button:disabled { opacity: .5; }
+  #status { margin: 1rem 0; font-weight: 600; min-height: 1.5em; }
+  #log p { margin: .4rem 0; }
+  #log .who { opacity: .6; margin-right: .4rem; }
+  #latency { font-size: .8rem; opacity: .6; }
+</style>
+</head>
+<body>
+<h1>Səsli köməkçi</h1>
+<form id="form">
+  <input id="code" type="password" placeholder="Giriş kodu" autocomplete="off" required>
+  <button id="start">Başla</button>
+</form>
+<div id="status" aria-live="polite"></div>
+<div id="log"></div>
+<div id="latency"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

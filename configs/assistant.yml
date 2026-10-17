@@ -4,15 +4,16 @@ tts:
   short_chars: 40             # chunks shorter than this take their style fully from the reference clips
                               # (keeps the voice stable on short replies); 0 = always use the tuned alpha/beta
 stt:
-  model: large-v3-turbo
+  model: LocalDoc/azerbaijani-whisper-turbo   # Hugging Face repo (converted once into models/stt/), or a
+                              # faster-whisper name such as large-v3-turbo
   device: cuda                # cpu also works (compute_type int8), about 1-2 s slower per turn
   compute_type: float16
   initial_prompt: "Salam, necəsiniz? Bu gün sizə necə kömək edə bilərəm?"
 llm:
-  model: gemini-2.5-flash
+  model: gemini-3.5-flash-lite
   max_turns: 10               # exchanges kept as conversation history
   max_output_tokens: 300
-  thinking_budget: 0          # 0 = no thinking (fastest); null = do not send the setting
+  thinking_budget: null       # null = do not send the setting (the lite models reject it); 0 = no thinking
   system_prompt: |
     Sən Azərbaycan dilində danışan səsli köməkçisən. Yalnız Azərbaycan dilində,
     bir-üç qısa cümlə ilə, danışıq üslubunda cavab ver. Siyahı, markdown, emoji
@@ -30,3 +31,8 @@ chunker:
 playback:
   gap_ms: 150
   tail_ms: 300
+server:                       # web demo (scripts/serve.py)
+  host: 127.0.0.1             # the tunnel connects locally; nothing is exposed on the LAN
+  port: 8000
+  max_sessions: 5             # visitors connected at the same time
+  idle_timeout_s: 300         # a connection with no recognised speech for this long is closed
